@@ -1,10 +1,11 @@
-from stockfish import Stockfish , StockfishException
+from stockfish import Stockfish, StockfishException
 import chess
 import chess.engine
 
 stockfish_path = '/opt/homebrew/opt/stockfish/bin/stockfish'
 stockfish = Stockfish(path='/opt/homebrew/opt/stockfish/bin/stockfish', depth=15)
 stockfish.update_engine_parameters({"Hash": 2048, "UCI_Chess960": "true"})
+
 
 def convert_to_uci(board, move_notation):
     """Convert algebraic notation to UCI format using python-chess."""
@@ -21,16 +22,22 @@ def begin_game():
         while not board.is_game_over():
             print(board)
             #undo previous move
+            if board.turn == chess.WHITE:
+                print("Your move (in UCI format, e.g., 'e2e4'):")
+                try:
+                    last_move = board.peek()
+                    print(f'Previous Move -> {last_move}')
+                    print("To Undo previous move, say 'Undo':")
+                except IndexError:
+                    pass
 
-            if(board.turn == chess.WHITE):
-                print("Your move (in UCI format, e.g., 'e2e4'), to undo Say 'Undo' :")
                 user_move = input()
-                if(user_move.lower() == 'undo'):
+                if user_move.lower() == 'undo':
                     try:
                         last_move = board.peek()
                         print(f'{last_move} Undo Complete')
-                        board.pop() # will undo computers move
-                        board.pop() # will undo users move
+                        board.pop()  # will undo computers move
+                        board.pop()  # will undo users move
                         continue
                     except IndexError:
                         print("Invalid, No Move available to Undo")
@@ -54,11 +61,11 @@ def begin_game():
                     continue
             #computers turn
             else:
-                result = engine.play(board, chess.engine.Limit(time=2.0))
-                board.push(result.move)
-                print("Stockfish move:", result.move.uci())
+                engine_move = engine.play(board, chess.engine.Limit(time=2.0))
+                board.push(engine_move.move)
+                print("Stockfish move:", engine_move.move.uci())
         print("Game over")
-        print("Result:", board.result())
+        print("engine_move:", board.engine_move())
 
-begin_game()
+
 
