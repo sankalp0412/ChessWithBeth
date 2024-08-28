@@ -23,7 +23,8 @@ def begin_game():
             print(board)
             #undo previous move
             if board.turn == chess.WHITE:
-                print("Your move (in UCI format, e.g., 'e2e4'):")
+                print("Your move (in UCI format, e.g., 'e2e4')")
+                print("To exit, say 'Exit':")
                 try:
                     last_move = board.peek()
                     print(f'Previous Move -> {last_move}')
@@ -42,6 +43,8 @@ def begin_game():
                     except IndexError:
                         print("Invalid, No Move available to Undo")
                         continue
+                elif user_move.lower() == 'exit':
+                    break
 
                 uci_move = convert_to_uci(board, user_move)
                 if uci_move:
@@ -65,7 +68,6 @@ def begin_game():
                 board.push(engine_move.move)
                 print("Stockfish move:", engine_move.move.uci())
         print("Game over")
-        print("engine_move:", board.engine_move())
 
 
 
