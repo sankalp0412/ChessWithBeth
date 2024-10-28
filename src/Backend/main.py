@@ -1,4 +1,4 @@
-from Stockfish.game import begin_game
+from Play.game import begin_game
 
 def display_menu():
     """Display the main menu."""

@@ -1,6 +1,7 @@
 from stockfish import Stockfish, StockfishException
 import chess
 import chess.engine
+from .inputMove import InputUserVoice
 
 stockfish_path = '/opt/homebrew/opt/stockfish/bin/stockfish'
 stockfish = Stockfish(path='/opt/homebrew/opt/stockfish/bin/stockfish', depth=15)
@@ -31,8 +32,11 @@ def begin_game():
                     print("To Undo previous move, say 'Undo':")
                 except IndexError:
                     pass
-
-                user_move = input()
+                #here we will use the voice functionality#######
+                # instead of input() we will call the function that will take the voice
+                # that function will take the input as a board pos.
+                # user_move = input()
+                user_move = InputUserVoice().input_move(board)
                 if user_move.lower() == 'undo':
                     try:
                         last_move = board.peek()
@@ -66,7 +70,7 @@ def begin_game():
             else:
                 engine_move = engine.play(board, chess.engine.Limit(time=2.0))
                 board.push(engine_move.move)
-                print("Stockfish move:", engine_move.move.uci())
+                print("Play move:", engine_move.move.uci())
         print("Game over")
 
 
