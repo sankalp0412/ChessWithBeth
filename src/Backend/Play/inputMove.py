@@ -1,5 +1,6 @@
 import speech_recognition as sr
 from .gemini import get_move_from_gemini
+import keyboard
 
 
 class InputUserVoice:
@@ -37,11 +38,15 @@ class InputUserVoice:
             print(f"You said: {text}")
         except sr.UnknownValueError:
             print("Sorry, I could not understand the audio.")
-            text = None
+            return False  # Default to not confirming if audio is unclear
         except sr.RequestError as e:
             print(f"Could not request results from Google Speech Recognition service; {e}")
-            text = None
-        return text.lower() == 'yes'
+            return False  # Default to not confirming in case of request error
+
+        # Ensure text is not None before calling lower()
+        if text is not None:
+            return text.lower() == 'yes'
+        return False  # Default to not confirming if text is None
 
     def is_legal_move(self, board, move):
         try:
