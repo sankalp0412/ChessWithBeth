@@ -8,3 +8,5 @@ __pycache__/
 
 .env
 __init__.py
+
+server_vc
