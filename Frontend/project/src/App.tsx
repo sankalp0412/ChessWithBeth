@@ -121,7 +121,6 @@ function App() {
                 type="text"
                 className="w-full py-3 px-4 rounded-lg bg-gray-100 text-gray-800 font-medium"
                 placeholder="Enter your ELO rating (default: 1200)"
-                
               ></input>
               <button
                 onClick={resetGame}
