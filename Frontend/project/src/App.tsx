@@ -15,6 +15,7 @@ function App() {
       setGame(gameCopy);
       return result;
     } catch (error) {
+      console.log(error);
       return null;
     }
   }
@@ -59,8 +60,8 @@ function App() {
               onPieceDrop={onDrop}
               boardWidth={560}
               customBoardStyle={{
-                borderRadius: '4px',
-                boxShadow: '0 2px 10px rgba(0, 0, 0, 0.5)',
+                borderRadius: "4px",
+                boxShadow: "0 2px 10px rgba(0, 0, 0, 0.5)",
               }}
             />
           </div>
@@ -79,11 +80,11 @@ function App() {
                 <Clock className="text-blue-500" />
                 {game.isGameOver()
                   ? "Game Over!"
-                  : `${game.turn() === 'w' ? "White" : "Black"}'s turn`}
+                  : `${game.turn() === "w" ? "White" : "Black"}'s turn`}
               </p>
               {game.isCheckmate() && (
                 <p className="text-xl font-bold text-red-600">
-                  Checkmate! {game.turn() === 'w' ? "Black" : "White"} wins!
+                  Checkmate! {game.turn() === "w" ? "Black" : "White"} wins!
                 </p>
               )}
               {game.isDraw() && (
@@ -94,14 +95,16 @@ function App() {
 
           {/* Game Controls Card */}
           <div className="bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Game Controls</h2>
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+              Game Controls
+            </h2>
             <div className="space-y-3">
               <button
                 onClick={gameStarted ? quitGame : startGame}
                 className={`w-full py-3 rounded-lg ${
                   gameStarted
-                    ? 'bg-red-500 hover:bg-red-600'
-                    : 'bg-green-500 hover:bg-green-600'
+                    ? "bg-red-500 hover:bg-red-600"
+                    : "bg-green-500 hover:bg-green-600"
                 } text-white font-medium flex items-center justify-center gap-2 transition-colors`}
               >
                 {gameStarted ? (
@@ -114,7 +117,12 @@ function App() {
                   </>
                 )}
               </button>
-
+              <input
+                type="text"
+                className="w-full py-3 px-4 rounded-lg bg-gray-100 text-gray-800 font-medium"
+                placeholder="Enter your ELO rating (default: 1200)"
+                
+              ></input>
               <button
                 onClick={resetGame}
                 className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
@@ -126,8 +134,8 @@ function App() {
                 onClick={toggleVoice}
                 className={`w-full py-3 rounded-lg ${
                   isVoiceEnabled
-                    ? 'bg-green-500 hover:bg-green-600'
-                    : 'bg-gray-500 hover:bg-gray-600'
+                    ? "bg-green-500 hover:bg-green-600"
+                    : "bg-gray-500 hover:bg-gray-600"
                 } text-white font-medium flex items-center justify-center gap-2 transition-colors`}
               >
                 {isVoiceEnabled ? (
