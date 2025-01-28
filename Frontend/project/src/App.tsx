@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { Mic, MicOff, PlayCircle, XCircle, RotateCcw, Clock, Trophy } from 'lucide-react';
+import { startGame } from "./services/chessServices";
+
 
 function App() {
   const [game, setGame] = useState(new Chess());
@@ -34,8 +36,17 @@ function App() {
     setGameStarted(false);
   };
 
-  const startGame = () => {
+  const startNewGame = async () => {
     setGameStarted(true);
+    //Fetch the ELO rating from the input field
+    const userEloRatingElement = document.getElementById('userEloRating') as HTMLInputElement;
+    let userEloRating = 1200;
+    if (userEloRatingElement.value.length){ 
+      userEloRating = parseInt(userEloRatingElement.value);
+    }
+      //Now we make API call to backend to create chess object new game with stockfish rating as userEloRating
+    const response = await startGame(userEloRating);
+    console.log(response);
   };
 
   const quitGame = () => {
@@ -100,7 +111,7 @@ function App() {
             </h2>
             <div className="space-y-3">
               <button
-                onClick={gameStarted ? quitGame : startGame}
+                onClick={gameStarted ? quitGame : startNewGame}
                 className={`w-full py-3 rounded-lg ${
                   gameStarted
                     ? "bg-red-500 hover:bg-red-600"
@@ -118,6 +129,7 @@ function App() {
                 )}
               </button>
               <input
+                id='userEloRating'
                 type="text"
                 className="w-full py-3 px-4 rounded-lg bg-gray-100 text-gray-800 font-medium"
                 placeholder="Enter your ELO rating (default: 1200)"
