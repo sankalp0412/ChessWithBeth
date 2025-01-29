@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { Mic, MicOff, PlayCircle, XCircle, RotateCcw, Clock, Trophy } from 'lucide-react';
-import { startGame } from "./services/chessServices";
+import { startGame, playUserMove } from "./services/chessServices";
 
 
 function App() {
@@ -10,11 +10,22 @@ function App() {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
 
-  function makeAMove(move: { from: string; to: string; promotion?: string }) {
+  async function makeStockfishMove(updatedFen: string) {
+    const gameCopy = new Chess(updatedFen);
+    setGame(gameCopy);
+  }
+  async function makeAMove(move: { from: string; to: string; promotion?: string }) {
     const gameCopy = new Chess(game.fen());
     try {
       const result = gameCopy.move(move);
       setGame(gameCopy);
+      //Now we make API call to backend to play the user move
+      // console.log(gameCopy.history()[0]);
+      const response = await playUserMove(gameCopy.history({verbose:true})[0].lan);
+      // Now we make the stockfish move in the front end using the fen returned by the backend
+      const stockfish_move_fen = response.board_fen;
+      console.log(response);
+      makeStockfishMove(stockfish_move_fen);
       return result;
     } catch (error) {
       console.log(error);
@@ -28,6 +39,7 @@ function App() {
       to: targetSquare,
       promotion: 'q',
     });
+    
     return move !== null;
   }
 
