@@ -1,7 +1,15 @@
 from fastapi import FastAPI
-from app.api import routes 
-
+from fastapi.middleware.cors import CORSMiddleware
+from app.routers.chess import chess_router
 
 app = FastAPI()
 
-app.include_router(routes.router, prefix="/home", tags=["chess"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # Frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+
+app.include_router(chess_router, prefix="/api")
