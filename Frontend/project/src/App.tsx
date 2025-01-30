@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Chessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { Mic, MicOff, PlayCircle, XCircle, RotateCcw, Clock, Trophy } from 'lucide-react';
-import { startGame, playUserMove } from "./services/chessServices";
+import { startGame, playUserMove, endGame } from "./services/chessServices";
 
 
 function App() {
@@ -21,6 +21,7 @@ function App() {
       setGame(gameCopy);
       //Now we make API call to backend to play the user move
       // console.log(gameCopy.history()[0]);
+      console.log(gameCopy.history({verbose:true}));
       const response = await playUserMove(gameCopy.history({verbose:true})[0].lan);
       // Now we make the stockfish move in the front end using the fen returned by the backend
       const stockfish_move_fen = response.board_fen;
@@ -43,8 +44,11 @@ function App() {
     return move !== null;
   }
 
-  const resetGame = () => {
+  async function resetGame() {
     setGame(new Chess());
+    //call api to end the game
+    const response = await endGame();
+    console.log(response);
     setGameStarted(false);
   };
 

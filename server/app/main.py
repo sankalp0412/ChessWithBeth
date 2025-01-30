@@ -13,3 +13,4 @@ app.add_middleware(
 )
 
 app.include_router(chess_router, prefix="/api")
+app.current_game = None

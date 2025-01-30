@@ -2,7 +2,7 @@ import chess
 import chess.engine
 from stockfish import Stockfish
 import random
-
+from fastapi import Request
 class ChessGame:
     """Handles the game state and Stockfish engine."""
     def __init__(self):
@@ -44,7 +44,8 @@ class ChessGame:
             return None
         candidate_moves = [move["Move"] for move in self.stockfish_engine.get_top_moves(3)]
         print("candidate_moves", candidate_moves)
-        result = random.choice(candidate_moves)
+        # result = random.choice(candidate_moves)
+        result = candidate_moves[len(candidate_moves)-1]
         #Make move in stockfish
         self.stockfish_engine.make_moves_from_current_position([result])
         #Make move in board
@@ -69,5 +70,7 @@ class ChessGame:
         self.reset()
 
 # Dependency Injection to provide a game instance
-def get_chess_game():
-    return ChessGame()
+def get_chess_game(request: Request):
+    if request.app.current_game is None:
+        request.app.current_game = ChessGame()
+    return request.app.current_game

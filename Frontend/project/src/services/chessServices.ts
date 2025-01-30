@@ -11,11 +11,13 @@ interface moveResponse {
   stockfish_move: string,
   board_fen: string,
 }
-
+interface endGameResponse {
+  message: string
+}
 // Function to start a game
 export const startGame = async (userElo: number): Promise<StartGameResponse> => {
   try {
-    const response = await api.post<StartGameResponse>("/start_game/", { user_elo: userElo });
+    const response = await api.post<StartGameResponse>(`/start_game/?user_elo=${userElo}`);
     return response.data;
   } catch (error) {
     console.error("Error starting game:", error);
@@ -31,6 +33,16 @@ export const playUserMove = async (userMove: string): Promise<moveResponse> => {
     return response.data;
   } catch (error) {
     console.error("Error playing user move:", error);
+    throw error;
+  }
+}
+
+export const endGame = async(): Promise<endGameResponse> => {
+  try {
+    const response = await api.post<endGameResponse>("/end_game/");
+    return response.data;
+  } catch (error) {
+    console.error("Error ending game:", error);
     throw error;
   }
 }
