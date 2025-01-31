@@ -7,7 +7,7 @@ class ChessGame:
     """Handles the game state and Stockfish engine."""
     def __init__(self):
         self.stockfish_engine = Stockfish(path='/opt/homebrew/opt/stockfish/bin/stockfish', depth=15)
-        self.stockfish_engine.update_engine_parameters({"Hash": 2048, "UCI_Chess960": "true"})
+        self.stockfish_engine.update_engine_parameters({"Hash": 2048, "UCI_Chess960": "false", "Skill Level": 0})
         self.board = chess.Board()
         
     def setup_stockfish_elo(self, user_elo: int):
@@ -19,33 +19,37 @@ class ChessGame:
         self.board = chess.Board()
     
     def make_user_move(self, move: str):
-        """Applies the user's move."""
-        chess_move = chess.Move.from_uci(move)
-        if chess_move in self.board.legal_moves:
-            print("chess_move", chess_move)
-            self.board.push(chess_move)
-            #Also make move in stockfish
-            self.stockfish_engine.make_moves_from_current_position([chess_move])
-            # return self.stockfish_engine.get_board_visual()
-        else:
-            raise ValueError("Illegal move")
-    
-    def convert_to_uci(board, move_notation):
-        """Convert algebraic notation to UCI format using python-chess."""
+        """Applies the user's move (in SAN notation)."""
+        print("User chess move as coming from frontend", move)
+        
         try:
-            move = board.parse_san(move_notation)
-            return move.uci()
-        except ValueError:
-            return None
+            # Convert SAN to a move object
+            chess_move = self.board.parse_san(move)
+            print("chess_move after converting from SAN", chess_move)
+            
+            # Check if the move is legal
+            if chess_move in self.board.legal_moves:
+                # Push the move to the board
+                self.board.push(chess_move)
+                print("board after pushing the move", self.board)
+                # Also make the move in Stockfish (using UCI notation)
+                #Stockish needs the move in Full algebraic notation
+                self.stockfish_engine.make_moves_from_current_position([chess_move])
+            else:
+                raise ValueError("Illegal move")
+        except ValueError as e:
+            print(f"Error processing move: {e}")
+            raise ValueError("Invalid or illegal move")
+    
         
     def get_engine_move(self):
         """Gets Stockfish's best move and applies it."""
         if self.board.is_game_over():
             return None
         candidate_moves = [move["Move"] for move in self.stockfish_engine.get_top_moves(3)]
-        print("candidate_moves", candidate_moves)
+        # print("candidate_moves", candidate_moves)
         # result = random.choice(candidate_moves)
-        result = candidate_moves[len(candidate_moves)-1]
+        result = candidate_moves[0] #Pick the best move
         #Make move in stockfish
         self.stockfish_engine.make_moves_from_current_position([result])
         #Make move in board

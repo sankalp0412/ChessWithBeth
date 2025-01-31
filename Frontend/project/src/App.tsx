@@ -22,7 +22,7 @@ function App() {
       //Now we make API call to backend to play the user move
       // console.log(gameCopy.history()[0]);
       console.log(gameCopy.history({verbose:true}));
-      const response = await playUserMove(gameCopy.history({verbose:true})[0].lan);
+      const response = await playUserMove(gameCopy.history({verbose:true})[0].san);
       // Now we make the stockfish move in the front end using the fen returned by the backend
       const stockfish_move_fen = response.board_fen;
       console.log(response);
@@ -80,7 +80,7 @@ function App() {
       <div className="max-w-6xl mx-auto flex gap-8">
         {/* Chess Board Section */}
         <div className="flex-1 bg-white rounded-lg shadow-lg p-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">React Chess</h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-6">Chess with Beth</h1>
           <div className="aspect-square max-w-2xl mx-auto">
             <Chessboard
               position={game.fen()}
