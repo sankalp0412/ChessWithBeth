@@ -92,6 +92,7 @@ function App() {
    * Called when a piece is dropped on the board.
    */
   function onDrop(sourceSquare: string, targetSquare: string) {
+    if(!gameStarted) return false;
     const move = makeAMove({
       from: sourceSquare,
       to: targetSquare,
