@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Chessboard } from "react-chessboard";
-import { Chess } from "chess.js";
+import { Chess, Square } from "chess.js";
 import {
   Mic,
   MicOff,
@@ -20,6 +20,7 @@ function App() {
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
+  const [squareStyles, setSquareStyles] = useState({});
 
   /**
    * Rebuild the board by replaying all moves in the provided history.
@@ -96,6 +97,7 @@ function App() {
       to: targetSquare,
       promotion: "q",
     });
+    resetSquareStyles(); // Reset square styles after move if color changed
     return move !== null;
   }
 
@@ -157,6 +159,56 @@ function App() {
     setIsVoiceEnabled(!isVoiceEnabled);
   };
   
+  const getCustomSquareStyleInCheck = () => {
+    if (!game.isCheck()) {
+      return {}; // No check, return empty styles
+    }
+  
+    const currentPlayerColor = game.turn(); // 'w' or 'b'
+    let kingSquare = "";
+  
+    // Loop through all squares to find the current player's king
+    const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    for (let rank = 1; rank <= 8; rank++) {
+      for (const file of files) {
+        const square = `${file}${rank}` as Square;
+        const piece = game.get(square);
+        if (piece?.type === "k" && piece.color === currentPlayerColor) {
+          kingSquare = square;
+          break;
+        }
+      }
+      if (kingSquare) break; // Exit loop early if king is found
+    }
+  
+    // Highlight the king's square in red
+    return kingSquare
+      ? {
+          [kingSquare]: {
+            backgroundColor: "rgba(255, 0, 0, 0.4)", // Semi-transparent red
+          },
+        }
+      : {};
+  };
+
+  const customSquareStyleOnRightClick = (square: Square) => {
+    const style=  {
+      [square]: {
+        backgroundColor: "rgba(233, 18, 18, 0.4)", // Semi-transparent green
+      },
+    };
+    setSquareStyles(style);
+  }
+
+  const resetSquareStyles = () => {
+    setSquareStyles({});
+  }
+
+  const getMergedSquareStyles = () => {
+    const checkStyles = getCustomSquareStyleInCheck();
+    return { ...checkStyles, ...squareStyles };
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -175,6 +227,9 @@ function App() {
                 borderRadius: "4px",
                 boxShadow: "0 2px 10px rgba(0, 0, 0, 0.5)",
               }}
+              customSquareStyles={getMergedSquareStyles()}  
+              onSquareRightClick={(square: Square) => customSquareStyleOnRightClick(square)}
+              onSquareClick={() => resetSquareStyles()}
             />
           </div>
         </div>
