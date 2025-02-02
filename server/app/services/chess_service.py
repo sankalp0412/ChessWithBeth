@@ -54,11 +54,20 @@ class ChessGame:
         self.stockfish_engine.make_moves_from_current_position([result])
         #Make move in board
 
-        move = chess.Move.from_uci(result)
+        move = chess.Move.from_uci(result) #this move is a Move object
         # print("move", move)
-        self.board.push(move) #this is error
+        move_san = self.board.san(move)
+        self.board.push(move) 
         # print(self.stockfish_engine.get_board_visual())
-        return move.uci()
+        #also return san move
+        return move.uci(), move_san
+    
+    def undo_move(self):
+        """Undo the last move."""
+        self.board.pop() #Engine move undone
+        self.board.pop() #User move undone
+        self.stockfish_engine.set_fen_position(self.board.fen(), send_ucinewgame_token = False)
+        return self.board.fen()
 
     def get_fen(self):
         """Returns the board state in FEN notation."""
