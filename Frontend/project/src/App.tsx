@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess, Square } from "chess.js";
 import {
@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 import { startGame, playUserMove, endGame, undoMove } from "./services/chessServices";
 
+
+
+
 function App() {
   // The Chess instance (do not recreate from FEN because that would lose history)
   const [game, setGame] = useState(new Chess());
@@ -21,10 +24,60 @@ function App() {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [squareStyles, setSquareStyles] = useState({});
-
+  const [transcript, setTranscript] = useState("");
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+ 
   /**
    * Rebuild the board by replaying all moves in the provided history.
    */
+
+  const initializeRecognition = () => {
+    if (!window.webkitSpeechRecognition) {
+      console.log("Speech Recognition is not supported in your browser.");
+      return;
+    }
+
+    const recognition = new window.webkitSpeechRecognition();
+    recognitionRef.current = recognition;
+
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    recognition.continuous = true;
+
+    // Add chess grammar
+    if ("webkitSpeechGrammarList" in window) {
+      const grammar = `
+        #JSGF V1.0; grammar chess; public <chess> =
+        a | b | c | d | e | f | g | h | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 
+        knight | rook | bishop | queen | king | pawn | castle | kingside | queenside |
+        the | on | capture | check | checkmate | draw | resign | undo | restart | quit;
+      `;
+      const speechRecognitionList = new window.webkitSpeechGrammarList();
+      speechRecognitionList.addFromString(grammar, 1);
+      recognition.grammars = speechRecognitionList;
+    }
+
+    recognition.onresult = (event) => {
+      let text = "";
+      for (let i = 0; i < event.results.length; i++) {
+        text += event.results[i][0].transcript;
+      }
+      setTranscript(text);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+    };
+
+    recognition.onend = () => {
+      setIsVoiceEnabled(false);
+    };
+
+    recognition.start();
+    setIsVoiceEnabled(true);
+  };
+
+
   const updateGameFromHistory = (history: string[]) => {
     const newGame = new Chess();
     history.forEach((san) => {
@@ -157,8 +210,21 @@ function App() {
   };
 
   const toggleVoice = () => {
-    setIsVoiceEnabled(!isVoiceEnabled);
+    if (!recognitionRef.current) {
+      initializeRecognition();
+    } else {
+      if (isVoiceEnabled) {
+        
+        recognitionRef.current.stop();
+        setIsVoiceEnabled(false);
+        recognitionRef.current = null;
+        console.log("Voice recognition stopped");
+        console.log("Transcript:", transcript);
+        setTranscript("");
+      }
+    }
   };
+  
   
   const getCustomSquareStyleInCheck = () => {
     if (!game.isCheck()) {
@@ -228,8 +294,10 @@ function App() {
                 borderRadius: "4px",
                 boxShadow: "0 2px 10px rgba(0, 0, 0, 0.5)",
               }}
-              customSquareStyles={getMergedSquareStyles()}  
-              onSquareRightClick={(square: Square) => customSquareStyleOnRightClick(square)}
+              customSquareStyles={getMergedSquareStyles()}
+              onSquareRightClick={(square: Square) =>
+                customSquareStyleOnRightClick(square)
+              }
               onSquareClick={() => resetSquareStyles()}
             />
           </div>
