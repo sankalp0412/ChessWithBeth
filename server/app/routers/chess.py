@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Depends, HTTPException
 from app.models.chess_models import MoveInput
 from app.services.chess_service import ChessGame, get_chess_game
+from app.utils.voice_to_move_llm import voice_to_move
 
 chess_router = APIRouter()
 
@@ -46,3 +47,10 @@ def undo_move(request: Request, game: ChessGame = Depends(get_chess_game)):
     """Undo the last move."""
     fen_after_undo = game.undo_move()
     return {"message": "Move undone", "board_fen_after_undo": fen_after_undo}
+
+
+@chess_router.post("/voice_to_move_san/")
+def voice_to_move_san(request: Request, game: ChessGame = Depends(get_chess_game),user_input: str = None):
+    """Converts voice input to move in SAN format using LLM."""
+    response = voice_to_move(user_input)
+    return {"message": response}
