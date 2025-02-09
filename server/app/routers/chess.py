@@ -50,7 +50,8 @@ def undo_move(request: Request, game: ChessGame = Depends(get_chess_game)):
 
 
 @chess_router.post("/voice_to_move_san/")
-def voice_to_move_san(request: Request, game: ChessGame = Depends(get_chess_game),user_input: str = None):
+def voice_to_move_san(user_input:str,request: Request, game: ChessGame = Depends(get_chess_game)):
     """Converts voice input to move in SAN format using LLM."""
+    print("User Input:",user_input)
     response = voice_to_move(user_input)
     return {"message": response}
