@@ -11,7 +11,7 @@ import {
   Trophy,
   Undo,
 } from "lucide-react";
-import { startGame, playUserMove, endGame, undoMove } from "./services/chessServices";
+import { startGame, playUserMove, endGame, undoMove, voiceToSan } from "./services/chessServices";
 
 
 
@@ -220,6 +220,13 @@ function App() {
         recognitionRef.current = null;
         console.log("Voice recognition stopped");
         console.log("Transcript:", transcript);
+        //now we make api request convert it to a san move only if transcript is not empty
+        if(transcript){
+          const response =  voiceToSan(transcript);
+          response.then((res) => {
+            console.log(res);
+          });
+      }
         setTranscript("");
       }
     }
