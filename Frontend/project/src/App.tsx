@@ -105,6 +105,40 @@ function App() {
    * - Call the backend API (playUserMove) which returns Stockfish’s move in SAN.
    * - Update moveHistory with Stockfish’s move.
    */
+
+  //Overload the function makeMove to access voice commands as well, in case of string input
+  async function makeAmove(move: string) {
+    try {
+      // Make the user move on the current game.
+      const result = game.move(move);
+      if (!result) return null; //illegal move
+
+      // Update the move history with the user move.
+      setMoveHistory((prev) => {
+        const newHistory = [...prev, result.san];
+        updateGameFromHistory(newHistory);
+        return newHistory;
+      });
+
+      // Call the backend to process the user's move.
+      // We send the user move's SAN (or you could send other info as needed).
+      const response = await playUserMove(result.san);
+      console.log("API Response:", response);
+
+      // Extract Stockfish's move in SAN from the response.
+      // (Ensure your backend returns the property "stockfish_san".)
+      const stockfish_san = response.stockfish_san;
+      if (stockfish_san) {
+        makeStockfishMove(stockfish_san);
+      }
+
+      return result;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
   async function makeAMove(move: {
     from: string;
     to: string;
@@ -225,6 +259,13 @@ function App() {
           const response =  voiceToSan(transcript);
           response.then((res) => {
             console.log(res);
+            if(res.message === "UNDO"){
+              undoPrevMove();
+            }
+            else if (res.message === "RESET"){
+              resetGame();
+            }
+            makeAmove(res.message);
           });
       }
         setTranscript("");
