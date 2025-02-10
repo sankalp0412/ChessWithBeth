@@ -50,7 +50,7 @@ function App() {
         #JSGF V1.0; grammar chess; public <chess> =
         a | b | c | d | e | f | g | h | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 
         knight | rook | bishop | queen | king | pawn | castle | kingside | queenside |
-        the | on | capture | check | checkmate | draw | resign | undo | restart | quit;
+        the | on | capture | check | checkmate |takes| draw | resign | undo | restart | quit;
       `;
       const speechRecognitionList = new window.webkitSpeechGrammarList();
       speechRecognitionList.addFromString(grammar, 1);
@@ -107,47 +107,11 @@ function App() {
    */
 
   //Overload the function makeMove to access voice commands as well, in case of string input
-  async function makeAmove(move: string) {
+  async function makeAMove(move: string | { from: string; to: string; promotion?: string }) {
     try {
       // Make the user move on the current game.
-      const result = game.move(move);
-      if (!result) return null; //illegal move
-
-      // Update the move history with the user move.
-      setMoveHistory((prev) => {
-        const newHistory = [...prev, result.san];
-        updateGameFromHistory(newHistory);
-        return newHistory;
-      });
-
-      // Call the backend to process the user's move.
-      // We send the user move's SAN (or you could send other info as needed).
-      const response = await playUserMove(result.san);
-      console.log("API Response:", response);
-
-      // Extract Stockfish's move in SAN from the response.
-      // (Ensure your backend returns the property "stockfish_san".)
-      const stockfish_san = response.stockfish_san;
-      if (stockfish_san) {
-        makeStockfishMove(stockfish_san);
-      }
-
-      return result;
-    } catch (error) {
-      console.error(error);
-      return null;
-    }
-  }
-
-  async function makeAMove(move: {
-    from: string;
-    to: string;
-    promotion?: string;
-  }) {
-    try {
-      // Make the user move on the current game.
-      const result = game.move(move);
-      if (!result) return null;
+      const result = typeof move === "string" ? game.move(move) : game.move(move);
+      if (!result) return null; // illegal move
 
       // Update the move history with the user move.
       setMoveHistory((prev) => {
@@ -265,7 +229,7 @@ function App() {
             else if (res.message === "RESET"){
               resetGame();
             }
-            makeAmove(res.message);
+            makeAMove(res.message);
           });
       }
         setTranscript("");
@@ -426,7 +390,7 @@ function App() {
                 <RotateCcw size={20} /> Reset Game
               </button>
               <button
-                onClick={toggleVoice}
+                onClick={gameStarted ? toggleVoice : undefined}
                 className={`w-full py-3 rounded-lg ${
                   isVoiceEnabled
                     ? "bg-green-500 hover:bg-green-600"
