@@ -10,6 +10,7 @@ import {
   Clock,
   Trophy,
   Undo,
+  Frown
 } from "lucide-react";
 import { startGame, playUserMove, endGame, undoMove, voiceToSan } from "./services/chessServices";
 
@@ -25,6 +26,8 @@ function App() {
   const [gameStarted, setGameStarted] = useState(false);
   const [squareStyles, setSquareStyles] = useState({});
   const [transcript, setTranscript] = useState("");
+  const [wasVoiceCaptured, setVoiceCaptured] = useState(true);
+  const [wasValidMove, setValidMove] = useState(true);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
  
   /**
@@ -107,11 +110,20 @@ function App() {
    */
 
   //Overload the function makeMove to access voice commands as well, in case of string input
+  function setMovetoInvalid(){
+    setValidMove(false);
+    setTimeout (() => {
+      setValidMove(true);
+    },2000)
+  }
   async function makeAMove(move: string | { from: string; to: string; promotion?: string }) {
     try {
       // Make the user move on the current game.
-      const result = typeof move === "string" ? game.move(move) : game.move(move);
-      if (!result) return null; // illegal move
+      const result = game.move(move);
+      if (!result) {
+        setMovetoInvalid();
+        return null;
+      }
 
       // Update the move history with the user move.
       setMoveHistory((prev) => {
@@ -131,7 +143,7 @@ function App() {
       if (stockfish_san) {
         makeStockfishMove(stockfish_san);
       }
-
+      setVoiceCaptured(true);
       return result;
     } catch (error) {
       console.error(error);
@@ -208,12 +220,14 @@ function App() {
   };
 
   const toggleVoice = () => {
+    setTranscript("");
+    setVoiceCaptured(true)
     if (!recognitionRef.current) {
       initializeRecognition();
     } else {
       if (isVoiceEnabled) {
-        
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.stop();
         setIsVoiceEnabled(false);
         recognitionRef.current = null;
         console.log("Voice recognition stopped");
@@ -231,8 +245,17 @@ function App() {
             }
             makeAMove(res.message);
           });
+          setTranscript("");
       }
-        setTranscript("");
+      if(!transcript){
+        setVoiceCaptured(false);
+      } 
+        }
+        catch (error) {
+          console.error("Error in voice recognition:", error);
+        }
+
+        
       }
     }
   };
@@ -373,7 +396,7 @@ function App() {
                     onClick={undoPrevMove}
                     className="w-1/2 py-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-medium flex items-center justify-center gap-2 transition-colors"
                   >
-                    <Undo size={20} /> Undo Move
+                    <Undo size={20} /> Takeback
                   </button>
                 )}
               </div>
@@ -407,6 +430,18 @@ function App() {
                   </>
                 )}
               </button>
+              <div className="incorrect-input">
+                {(!wasVoiceCaptured || !wasValidMove) && (
+                  <div>
+                    <Frown size={30} />
+                    {!wasValidMove? (
+                      <span>Sorry, Invalid Move. Please try again.</span>
+                    ) : (
+                      <span>Sorry, couldn't understand. Please try again.</span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
