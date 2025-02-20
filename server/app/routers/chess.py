@@ -54,4 +54,4 @@ def voice_to_move_san(user_input:str,request: Request, game: ChessGame = Depends
     """Converts voice input to move in SAN format using LLM."""
     print("User Input:",user_input)
     response = voice_to_move(user_input)
-    return {"message": response}
+    return {"message": response.strip()}

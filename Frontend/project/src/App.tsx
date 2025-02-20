@@ -18,6 +18,7 @@ import { startGame, playUserMove, endGame, undoMove, voiceToSan } from "./servic
 
 
 function App() {
+
   // The Chess instance (do not recreate from FEN because that would lose history)
   const [game, setGame] = useState(new Chess());
   // Store moves in SAN format (e.g. "e4", "Nf3", etc.)
@@ -29,7 +30,12 @@ function App() {
   const [wasVoiceCaptured, setVoiceCaptured] = useState(true);
   const [wasValidMove, setValidMove] = useState(true);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
- 
+  
+  // useEffect(() => {
+  //   if (!wasValidMove) {
+  //     console.log("Invalid move detected!");
+  //   }
+  // }, [wasValidMove]);
   /**
    * Rebuild the board by replaying all moves in the provided history.
    */
@@ -109,21 +115,27 @@ function App() {
    * - Update moveHistory with Stockfish’s move.
    */
 
-  //Overload the function makeMove to access voice commands as well, in case of string input
+  
   function setMovetoInvalid(){
-    setValidMove(false);
+    setValidMove((prevMoveState) => {
+      const newMoveState = !prevMoveState
+      return newMoveState;
+    });
+    // console.log(wasValidMove)
     setTimeout (() => {
-      setValidMove(true);
+      setValidMove((prevMoveState) => {
+        const newMoveState = !prevMoveState
+        return newMoveState;
+      });
     },2000)
   }
   async function makeAMove(move: string | { from: string; to: string; promotion?: string }) {
     try {
       // Make the user move on the current game.
       const result = game.move(move);
-      if (!result) {
-        setMovetoInvalid();
-        return null;
-      }
+      if (!result)
+        return null
+
 
       // Update the move history with the user move.
       setMoveHistory((prev) => {
@@ -138,7 +150,7 @@ function App() {
       console.log("API Response:", response);
 
       // Extract Stockfish's move in SAN from the response.
-      // (Ensure your backend returns the property "stockfish_san".)
+
       const stockfish_san = response.stockfish_san;
       if (stockfish_san) {
         makeStockfishMove(stockfish_san);
@@ -147,6 +159,7 @@ function App() {
       return result;
     } catch (error) {
       console.error(error);
+      setMovetoInvalid(); 
       return null;
     }
   }
@@ -243,7 +256,8 @@ function App() {
             else if (res.message === "RESET"){
               resetGame();
             }
-            makeAMove(res.message);
+            else 
+              makeAMove(res.message);
           });
           setTranscript("");
       }
@@ -254,8 +268,8 @@ function App() {
         catch (error) {
           console.error("Error in voice recognition:", error);
         }
-
-        
+      }else {
+        initializeRecognition();
       }
     }
   };
@@ -310,7 +324,7 @@ function App() {
     const checkStyles = getCustomSquareStyleInCheck();
     return { ...checkStyles, ...squareStyles };
   };
-
+  
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
