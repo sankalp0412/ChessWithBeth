@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess, Square } from "chess.js";
 import {
@@ -10,10 +10,15 @@ import {
   Clock,
   Trophy,
   Undo,
+  Frown
 } from "lucide-react";
-import { startGame, playUserMove, endGame, undoMove } from "./services/chessServices";
+import { startGame, playUserMove, endGame, undoMove, voiceToSan } from "./services/chessServices";
+
+
+
 
 function App() {
+
   // The Chess instance (do not recreate from FEN because that would lose history)
   const [game, setGame] = useState(new Chess());
   // Store moves in SAN format (e.g. "e4", "Nf3", etc.)
@@ -21,10 +26,67 @@ function App() {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [squareStyles, setSquareStyles] = useState({});
-
+  const [transcript, setTranscript] = useState("");
+  const [wasVoiceCaptured, setVoiceCaptured] = useState(true);
+  const [wasValidMove, setValidMove] = useState(true);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  
+  // useEffect(() => {
+  //   if (!wasValidMove) {
+  //     console.log("Invalid move detected!");
+  //   }
+  // }, [wasValidMove]);
   /**
    * Rebuild the board by replaying all moves in the provided history.
    */
+
+  const initializeRecognition = () => {
+    if (!window.webkitSpeechRecognition) {
+      console.log("Speech Recognition is not supported in your browser.");
+      return;
+    }
+
+    const recognition = new window.webkitSpeechRecognition();
+    recognitionRef.current = recognition;
+
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    recognition.continuous = true;
+
+    // Add chess grammar
+    if ("webkitSpeechGrammarList" in window) {
+      const grammar = `
+        #JSGF V1.0; grammar chess; public <chess> =
+        a | b | c | d | e | f | g | h | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 
+        knight | rook | bishop | queen | king | pawn | castle | kingside | queenside |
+        the | on | capture | check | checkmate |takes| draw | resign | undo | restart | quit;
+      `;
+      const speechRecognitionList = new window.webkitSpeechGrammarList();
+      speechRecognitionList.addFromString(grammar, 1);
+      recognition.grammars = speechRecognitionList;
+    }
+
+    recognition.onresult = (event) => {
+      let text = "";
+      for (let i = 0; i < event.results.length; i++) {
+        text += event.results[i][0].transcript;
+      }
+      setTranscript(text);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+    };
+
+    recognition.onend = () => {
+      setIsVoiceEnabled(false);
+    };
+
+    recognition.start();
+    setIsVoiceEnabled(true);
+  };
+
+
   const updateGameFromHistory = (history: string[]) => {
     const newGame = new Chess();
     history.forEach((san) => {
@@ -52,15 +114,28 @@ function App() {
    * - Call the backend API (playUserMove) which returns Stockfish’s move in SAN.
    * - Update moveHistory with Stockfish’s move.
    */
-  async function makeAMove(move: {
-    from: string;
-    to: string;
-    promotion?: string;
-  }) {
+
+  
+  function setMovetoInvalid(){
+    setValidMove((prevMoveState) => {
+      const newMoveState = !prevMoveState
+      return newMoveState;
+    });
+    // console.log(wasValidMove)
+    setTimeout (() => {
+      setValidMove((prevMoveState) => {
+        const newMoveState = !prevMoveState
+        return newMoveState;
+      });
+    },2000)
+  }
+  async function makeAMove(move: string | { from: string; to: string; promotion?: string }) {
     try {
       // Make the user move on the current game.
       const result = game.move(move);
-      if (!result) return null;
+      if (!result)
+        return null
+
 
       // Update the move history with the user move.
       setMoveHistory((prev) => {
@@ -75,15 +150,16 @@ function App() {
       console.log("API Response:", response);
 
       // Extract Stockfish's move in SAN from the response.
-      // (Ensure your backend returns the property "stockfish_san".)
+
       const stockfish_san = response.stockfish_san;
       if (stockfish_san) {
         makeStockfishMove(stockfish_san);
       }
-
+      setVoiceCaptured(true);
       return result;
     } catch (error) {
       console.error(error);
+      setMovetoInvalid(); 
       return null;
     }
   }
@@ -157,8 +233,47 @@ function App() {
   };
 
   const toggleVoice = () => {
-    setIsVoiceEnabled(!isVoiceEnabled);
+    setTranscript("");
+    setVoiceCaptured(true)
+    if (!recognitionRef.current) {
+      initializeRecognition();
+    } else {
+      if (isVoiceEnabled) {
+        try {
+          recognitionRef.current.stop();
+        setIsVoiceEnabled(false);
+        recognitionRef.current = null;
+        console.log("Voice recognition stopped");
+        console.log("Transcript:", transcript);
+        //now we make api request convert it to a san move only if transcript is not empty
+        if(transcript){
+          const response =  voiceToSan(transcript);
+          response.then((res) => {
+            console.log(res);
+            if(res.message === "UNDO"){
+              undoPrevMove();
+            }
+            else if (res.message === "RESET"){
+              resetGame();
+            }
+            else 
+              makeAMove(res.message);
+          });
+          setTranscript("");
+      }
+      if(!transcript){
+        setVoiceCaptured(false);
+      } 
+        }
+        catch (error) {
+          console.error("Error in voice recognition:", error);
+        }
+      }else {
+        initializeRecognition();
+      }
+    }
   };
+  
   
   const getCustomSquareStyleInCheck = () => {
     if (!game.isCheck()) {
@@ -209,7 +324,7 @@ function App() {
     const checkStyles = getCustomSquareStyleInCheck();
     return { ...checkStyles, ...squareStyles };
   };
-
+  
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -228,8 +343,10 @@ function App() {
                 borderRadius: "4px",
                 boxShadow: "0 2px 10px rgba(0, 0, 0, 0.5)",
               }}
-              customSquareStyles={getMergedSquareStyles()}  
-              onSquareRightClick={(square: Square) => customSquareStyleOnRightClick(square)}
+              customSquareStyles={getMergedSquareStyles()}
+              onSquareRightClick={(square: Square) =>
+                customSquareStyleOnRightClick(square)
+              }
               onSquareClick={() => resetSquareStyles()}
             />
           </div>
@@ -293,7 +410,7 @@ function App() {
                     onClick={undoPrevMove}
                     className="w-1/2 py-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-medium flex items-center justify-center gap-2 transition-colors"
                   >
-                    <Undo size={20} /> Undo Move
+                    <Undo size={20} /> Takeback
                   </button>
                 )}
               </div>
@@ -310,7 +427,7 @@ function App() {
                 <RotateCcw size={20} /> Reset Game
               </button>
               <button
-                onClick={toggleVoice}
+                onClick={gameStarted ? toggleVoice : undefined}
                 className={`w-full py-3 rounded-lg ${
                   isVoiceEnabled
                     ? "bg-green-500 hover:bg-green-600"
@@ -327,6 +444,18 @@ function App() {
                   </>
                 )}
               </button>
+              <div className="incorrect-input">
+                {(!wasVoiceCaptured || !wasValidMove) && (
+                  <div>
+                    <Frown size={30} />
+                    {!wasValidMove? (
+                      <span>Sorry, Invalid Move. Please try again.</span>
+                    ) : (
+                      <span>Sorry, couldn't understand. Please try again.</span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

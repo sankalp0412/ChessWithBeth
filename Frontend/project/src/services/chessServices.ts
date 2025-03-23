@@ -20,6 +20,11 @@ interface undoMoveResponse {
   message: string,
   board_fen_after_undo: string,
 }
+
+interface voiceToSanResponse {
+  message: string,
+}
+
 // Function to start a game
 export const startGame = async (userElo: number): Promise<StartGameResponse> => {
   try {
@@ -61,6 +66,17 @@ export const undoMove = async(): Promise<undoMoveResponse> => {
   }
   catch (error) {
     console.error("Error undoing move:", error);
+    throw error;
+  }
+}
+
+export const voiceToSan = async(voiceText: string): Promise<voiceToSanResponse> => {
+  try{
+    const response = await api.post<voiceToSanResponse>(`/voice_to_move_san/?user_input=${voiceText}`);
+    return response.data;
+  }
+  catch (error) {
+    console.error("Error converting voice to SAN:", error);
     throw error;
   }
 }
