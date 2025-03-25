@@ -29,6 +29,7 @@ function App() {
   const [transcript, setTranscript] = useState("");
   const [wasVoiceCaptured, setVoiceCaptured] = useState(true);
   const [wasValidMove, setValidMove] = useState(true);
+  const gameIdRef = useRef("")
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   
   // useEffect(() => {
@@ -199,9 +200,20 @@ function App() {
     if (userEloRatingElement && userEloRatingElement.value.length) {
       userEloRating = parseInt(userEloRatingElement.value);
     }
-    const response = await startGame(userEloRating);
-    console.log(response);
-  };
+    try {
+      const response = await startGame(userEloRating);
+      console.log(response)
+      if (response && response.game_id) {
+        gameIdRef.current = response.game_id;
+        console.log("Game started with ID:", gameIdRef.current);
+      } else {
+        console.error("No game ID received from server");
+      }
+    } catch (error) {
+      console.error("Error starting game:", error);
+      setGameStarted(false);
+    }
+};
 
   /**
    * Undo the last move by removing it from moveHistory and rebuilding the board.
