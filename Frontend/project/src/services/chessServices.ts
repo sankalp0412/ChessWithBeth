@@ -3,6 +3,7 @@ import api from "./api";  // Import the Axios instance
 // Define a TypeScript type for the API response
 interface StartGameResponse {
   message: string; // Optional field
+  game_id: string
 }
 
 interface moveResponse {
