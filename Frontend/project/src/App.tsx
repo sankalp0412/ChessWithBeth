@@ -31,6 +31,7 @@ function App() {
   const [transcript, setTranscript] = useState("");
   const [wasVoiceCaptured, setVoiceCaptured] = useState(true);
   const [wasValidMove, setValidMove] = useState(true);
+  const [IsGameOver, setIsGameOver] = useState(false);
   const gameIdRef = useRef("");
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
@@ -149,7 +150,9 @@ function App() {
       // We send the user move's SAN (or you could send other info as needed).
       const response = await playUserMove(result.san, gameIdRef.current);
       console.log("API Response:", response);
-
+      if (response.is_game_over) {
+        setIsGameOver(true);
+      }
       // Extract Stockfish's move in SAN from the response.
 
       const stockfish_san = response.stockfish_san;
@@ -181,9 +184,10 @@ function App() {
 
   async function resetGame() {
     setGame(new Chess());
-    const response = await endGame();
+    const response = await endGame(gameIdRef.current);
     console.log(response);
     setGameStarted(false);
+    gameIdRef.current = "";
     const userEloRatingElement = document.getElementById(
       "userEloRating"
     ) as HTMLInputElement;
@@ -193,6 +197,7 @@ function App() {
 
   const startNewGame = async () => {
     setGameStarted(true);
+    setIsGameOver(false);
     const userEloRatingElement = document.getElementById(
       "userEloRating"
     ) as HTMLInputElement;
@@ -228,7 +233,7 @@ function App() {
 
     // Make API call to undo the move in backend
     try {
-      const response = await undoMove();
+      const response = await undoMove(gameIdRef.current);
       console.log("Response after undo:", response);
     } catch (error) {
       console.error("Error undoing move:", error);
@@ -414,7 +419,12 @@ function App() {
                 {gameStarted && moveHistory.length > 0 && (
                   <button
                     onClick={undoPrevMove}
-                    className="w-1/2 py-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-medium flex items-center justify-center gap-2 transition-colors"
+                    disabled={IsGameOver}
+                    className={` ${
+                      IsGameOver
+                        ? "w-1/2 py-3 rounded-lg bg-gray-500 text-white font-medium flex items-center justify-center gap-2 transition-colors"
+                        : "w-1/2 py-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-medium flex items-center justify-center gap-2 transition-colors"
+                    }`}
                   >
                     <Undo size={20} /> Takeback
                   </button>

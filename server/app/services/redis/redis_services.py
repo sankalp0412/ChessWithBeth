@@ -58,3 +58,12 @@ def redis_get_game_data_by_id(game_id: str, redis_client: redis.Redis) -> dict:
     except redis.RedisError as re:
         log_error(f"Redis operation failed: {str(re)}")
         raise RedisServiceError(f"Redis operation failed: {str(re)}")
+
+
+def redis_delete_game_by_id(game_id: str, redis_client: redis.Redis) -> str:
+    try:
+        redis_client.delete(game_id)
+        return "Game Ended"
+    except redis.RedisError as re:
+        log_error(f"Redis delte operation failed: {re}")
+        raise RedisServiceError(f"Redis delete operation failed")

@@ -12,7 +12,9 @@ interface moveResponse {
   stockfish_move: string,
   stockfish_san: string,
   board_fen: string,
-  game_id: string
+  game_id: string,
+  is_game_over: boolean,
+  winner: string
 }
 interface endGameResponse {
   message: string
@@ -21,6 +23,7 @@ interface endGameResponse {
 interface undoMoveResponse {
   message: string,
   board_fen_after_undo: string,
+  game_id: string
 }
 
 interface voiceToSanResponse {
@@ -50,9 +53,9 @@ export const playUserMove = async (userMove: string, game_id: string): Promise<m
   }
 }
 
-export const endGame = async(): Promise<endGameResponse> => {
+export const endGame = async(game_id: string): Promise<endGameResponse> => {
   try {
-    const response = await api.post<endGameResponse>("/end_game/");
+    const response = await api.post<endGameResponse>(`/end_game/?game_id=${game_id}`);
     return response.data;
   } catch (error) {
     console.error("Error ending game:", error);
@@ -61,9 +64,9 @@ export const endGame = async(): Promise<endGameResponse> => {
 }
 
 
-export const undoMove = async(): Promise<undoMoveResponse> => {
+export const undoMove = async(game_id: string): Promise<undoMoveResponse> => {
   try{
-    const response = await api.post<undoMoveResponse>("/undo_move/");
+    const response = await api.post<undoMoveResponse>(`/undo_move/?game_id=${game_id}`);
     return response.data;
   }
   catch (error) {

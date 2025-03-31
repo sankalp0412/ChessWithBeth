@@ -21,3 +21,9 @@ def log_success(message: str) -> None:
     """Log a success message with color"""
     colored_message = f"{Fore.GREEN}[SUCCESS] {message}{Style.RESET_ALL}"
     logger.info(colored_message)
+
+
+def log_debug(message: str) -> None:
+    """Log a message for dubugging"""
+    colored_messsage = f"{Fore.BLUE}[DEBUG] {message} {Style.RESET_ALL}"
+    logger.info(colored_messsage)
