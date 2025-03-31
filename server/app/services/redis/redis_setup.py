@@ -5,7 +5,7 @@ def get_redis_client():
     redis_client = None  # Ensure it's always defined
     try:
         redis_client = redis.Redis(
-            host="localhost", port=6379, db=0, decode_responses=True
+            host="localhost", port=6379, db=0, decode_responses=False
         )
         redis_client.ping()  # Check if Redis is reachable
     except Exception as e:

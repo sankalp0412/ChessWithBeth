@@ -10,15 +10,17 @@ import {
   Clock,
   Trophy,
   Undo,
-  Frown
+  Frown,
 } from "lucide-react";
-import { startGame, playUserMove, endGame, undoMove, voiceToSan } from "./services/chessServices";
-
-
-
+import {
+  startGame,
+  playUserMove,
+  endGame,
+  undoMove,
+  voiceToSan,
+} from "./services/chessServices";
 
 function App() {
-
   // The Chess instance (do not recreate from FEN because that would lose history)
   const [game, setGame] = useState(new Chess());
   // Store moves in SAN format (e.g. "e4", "Nf3", etc.)
@@ -29,9 +31,9 @@ function App() {
   const [transcript, setTranscript] = useState("");
   const [wasVoiceCaptured, setVoiceCaptured] = useState(true);
   const [wasValidMove, setValidMove] = useState(true);
-  const gameIdRef = useRef("")
+  const gameIdRef = useRef("");
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  
+
   // useEffect(() => {
   //   if (!wasValidMove) {
   //     console.log("Invalid move detected!");
@@ -87,7 +89,6 @@ function App() {
     setIsVoiceEnabled(true);
   };
 
-
   const updateGameFromHistory = (history: string[]) => {
     const newGame = new Chess();
     history.forEach((san) => {
@@ -116,27 +117,26 @@ function App() {
    * - Update moveHistory with Stockfish’s move.
    */
 
-  
-  function setMovetoInvalid(){
+  function setMovetoInvalid() {
     setValidMove((prevMoveState) => {
-      const newMoveState = !prevMoveState
+      const newMoveState = !prevMoveState;
       return newMoveState;
     });
     // console.log(wasValidMove)
-    setTimeout (() => {
+    setTimeout(() => {
       setValidMove((prevMoveState) => {
-        const newMoveState = !prevMoveState
+        const newMoveState = !prevMoveState;
         return newMoveState;
       });
-    },2000)
+    }, 2000);
   }
-  async function makeAMove(move: string | { from: string; to: string; promotion?: string }) {
+  async function makeAMove(
+    move: string | { from: string; to: string; promotion?: string }
+  ) {
     try {
       // Make the user move on the current game.
       const result = game.move(move);
-      if (!result)
-        return null
-
+      if (!result) return null;
 
       // Update the move history with the user move.
       setMoveHistory((prev) => {
@@ -147,7 +147,7 @@ function App() {
 
       // Call the backend to process the user's move.
       // We send the user move's SAN (or you could send other info as needed).
-      const response = await playUserMove(result.san);
+      const response = await playUserMove(result.san, gameIdRef.current);
       console.log("API Response:", response);
 
       // Extract Stockfish's move in SAN from the response.
@@ -160,7 +160,7 @@ function App() {
       return result;
     } catch (error) {
       console.error(error);
-      setMovetoInvalid(); 
+      setMovetoInvalid();
       return null;
     }
   }
@@ -169,7 +169,7 @@ function App() {
    * Called when a piece is dropped on the board.
    */
   function onDrop(sourceSquare: string, targetSquare: string) {
-    if(!gameStarted) return false;
+    if (!gameStarted) return false;
     const move = makeAMove({
       from: sourceSquare,
       to: targetSquare,
@@ -202,7 +202,7 @@ function App() {
     }
     try {
       const response = await startGame(userEloRating);
-      console.log(response)
+      console.log(response);
       if (response && response.game_id) {
         gameIdRef.current = response.game_id;
         console.log("Game started with ID:", gameIdRef.current);
@@ -213,27 +213,27 @@ function App() {
       console.error("Error starting game:", error);
       setGameStarted(false);
     }
-};
+  };
 
   /**
    * Undo the last move by removing it from moveHistory and rebuilding the board.
    */
   async function undoPrevMove() {
     if (moveHistory.length === 0) return; // No moves to undo
-  
+
     // Create a new history by removing the last move
     const newHistory = moveHistory.slice(0, -2);
     updateGameFromHistory(newHistory);
     console.log("History after undo:", newHistory);
-  
+
     // Make API call to undo the move in backend
     try {
-      const response = await undoMove(); 
+      const response = await undoMove();
       console.log("Response after undo:", response);
     } catch (error) {
       console.error("Error undoing move:", error);
     }
-  
+
     // Update move history state
     setMoveHistory(newHistory);
   }
@@ -246,55 +246,50 @@ function App() {
 
   const toggleVoice = () => {
     setTranscript("");
-    setVoiceCaptured(true)
+    setVoiceCaptured(true);
     if (!recognitionRef.current) {
       initializeRecognition();
     } else {
       if (isVoiceEnabled) {
         try {
           recognitionRef.current.stop();
-        setIsVoiceEnabled(false);
-        recognitionRef.current = null;
-        console.log("Voice recognition stopped");
-        console.log("Transcript:", transcript);
-        //now we make api request convert it to a san move only if transcript is not empty
-        if(transcript){
-          const response =  voiceToSan(transcript);
-          response.then((res) => {
-            console.log(res);
-            if(res.message === "UNDO"){
-              undoPrevMove();
-            }
-            else if (res.message === "RESET"){
-              resetGame();
-            }
-            else 
-              makeAMove(res.message);
-          });
-          setTranscript("");
-      }
-      if(!transcript){
-        setVoiceCaptured(false);
-      } 
-        }
-        catch (error) {
+          setIsVoiceEnabled(false);
+          recognitionRef.current = null;
+          console.log("Voice recognition stopped");
+          console.log("Transcript:", transcript);
+          //now we make api request convert it to a san move only if transcript is not empty
+          if (transcript) {
+            const response = voiceToSan(transcript);
+            response.then((res) => {
+              console.log(res);
+              if (res.message === "UNDO") {
+                undoPrevMove();
+              } else if (res.message === "RESET") {
+                resetGame();
+              } else makeAMove(res.message);
+            });
+            setTranscript("");
+          }
+          if (!transcript) {
+            setVoiceCaptured(false);
+          }
+        } catch (error) {
           console.error("Error in voice recognition:", error);
         }
-      }else {
+      } else {
         initializeRecognition();
       }
     }
   };
-  
-  
+
   const getCustomSquareStyleInCheck = () => {
     if (!game.isCheck()) {
       return {}; // No check, return empty styles
     }
-  
+
     const currentPlayerColor = game.turn(); // 'w' or 'b'
     let kingSquare = "";
-  
+
     // Loop through all squares to find the current player's king
     const files = ["a", "b", "c", "d", "e", "f", "g", "h"];
     for (let rank = 1; rank <= 8; rank++) {
@@ -308,7 +303,7 @@ function App() {
       }
       if (kingSquare) break; // Exit loop early if king is found
     }
-  
+
     // Highlight the king's square in red
     return kingSquare
       ? {
@@ -320,23 +315,22 @@ function App() {
   };
 
   const customSquareStyleOnRightClick = (square: Square) => {
-    const style=  {
+    const style = {
       [square]: {
         backgroundColor: "rgba(233, 18, 18, 0.4)", // Semi-transparent green
       },
     };
     setSquareStyles(style);
-  }
+  };
 
   const resetSquareStyles = () => {
     setSquareStyles({});
-  }
+  };
 
   const getMergedSquareStyles = () => {
     const checkStyles = getCustomSquareStyleInCheck();
     return { ...checkStyles, ...squareStyles };
   };
-  
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -460,7 +454,7 @@ function App() {
                 {(!wasVoiceCaptured || !wasValidMove) && (
                   <div>
                     <Frown size={30} />
-                    {!wasValidMove? (
+                    {!wasValidMove ? (
                       <span>Sorry, Invalid Move. Please try again.</span>
                     ) : (
                       <span>Sorry, couldn't understand. Please try again.</span>

@@ -5,8 +5,13 @@ import random
 from fastapi import Request
 from app.services.redis.redis_services import redis_get_game_data_by_id
 from app.services.redis.redis_setup import get_redis_client
+from app.utils.error_handling import log_error, log_success, ChessGameError
 
 redis_client = get_redis_client()
+
+
+class ChessServiceError(ChessGameError):
+    pass
 
 
 class ChessGame:
@@ -15,14 +20,33 @@ class ChessGame:
     elo_level = None
 
     def __init__(self, game_id: str):
-        self.stockfish_engine = Stockfish(
-            path="/opt/homebrew/opt/stockfish/bin/stockfish", depth=15
-        )
-        self.stockfish_engine.update_engine_parameters(
-            {"Hash": 2048, "UCI_Chess960": "false", "Skill Level": 0}
-        )
-        self.board = chess.Board()
-        self.game_id = game_id
+        try:
+            self.stockfish_engine = Stockfish(
+                path="/opt/homebrew/opt/stockfish/bin/stockfish", depth=15
+            )
+            log_success("Stockfish engine initialized successfully")
+
+            # Update engine parameters with error handling
+            try:
+                self.stockfish_engine.update_engine_parameters(
+                    {"Hash": 2048, "UCI_Chess960": "false", "Skill Level": 0}
+                )
+                log_success("Stockfish parameters updated successfully")
+            except Exception as e:
+                log_error(f"Failed to update Stockfish parameters: {str(e)}")
+                raise ChessServiceError(f"Engine parameter update failed: {str(e)}")
+
+            self.board = chess.Board()
+            self.game_id = game_id
+
+        except FileNotFoundError:
+            log_error("Stockfish engine not found at specified path")
+            raise ChessServiceError(
+                "Stockfish engine not found. Please ensure it's installed correctly."
+            )
+        except Exception as e:
+            log_error(f"Failed to initialize chess game: {str(e)}")
+            raise ChessServiceError(f"Chess game initialization failed: {str(e)}")
 
     def setup_stockfish_elo(self, user_elo: int):
         """Sets the Stockfish engine's ELO rating."""
@@ -39,9 +63,16 @@ class ChessGame:
 
     @classmethod
     def from_dict(cls, data):
-        game = cls(data["game_id"])
-        game.set_board_from_fen(data["fen"], data["stockfish_elo"])
-        return game
+        try:
+            game = cls(data["game_id"])
+            game.set_board_from_fen(data["fen"], data["stockfish_elo"])
+            log_success(f"Created new Game instance from data:{game}")
+            return game
+        except Exception as e:
+            log_error(f"Error Creating Game from dictionary  data: {str(e)}")
+            raise ChessServiceError(
+                f"Error Creating Game from dictionary data:{str(e)}"
+            )
 
     def set_board_from_fen(self, fen: str, stockfish_elo: str | None):
         self.board = chess.Board(fen=fen)
@@ -67,7 +98,7 @@ class ChessGame:
             if chess_move in self.board.legal_moves:
                 # Push the move to the board
                 self.board.push(chess_move)
-                print("board after pushing the move", self.board)
+                print("Board after pushing the move\n", self.board)
                 # Also make the move in Stockfish (using UCI notation)
                 # Stockish needs the move in Full algebraic notation
                 self.stockfish_engine.make_moves_from_current_position([chess_move])
@@ -97,6 +128,7 @@ class ChessGame:
         self.board.push(move)
         # print(self.stockfish_engine.get_board_visual())
         # also return san move
+        log_success(f"Board after engine move: \n {self.board}")
         return move.uci(), move_san
 
     def undo_move(self):

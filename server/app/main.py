@@ -1,8 +1,28 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers.chess import chess_router
+from app.services.redis.redis_setup import get_redis_client
+from contextlib import asynccontextmanager
+from app.utils.error_handling import log_success
 
-app = FastAPI()
+# app = FastAPI()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Starting up...")
+
+    # Initialize Redis client as centralized state
+    app.state.redis_client = get_redis_client()
+    log_success("Redis connected.")
+    yield
+
+    app.state.redis_client.close()
+    log_success("Redis disconnected.")
+
+
+app = FastAPI(lifespan=lifespan)
+
 
 app.add_middleware(
     CORSMiddleware,
