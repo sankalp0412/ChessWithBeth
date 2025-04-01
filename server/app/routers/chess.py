@@ -5,7 +5,7 @@ from app.services.chess_service import (
     create_and_get_new_chess_game,
     ChessServiceError,
 )
-from app.utils.voice_to_move_llm import voice_to_move
+from app.utils.voice_to_move_llm import voice_to_move, DifyServiceError
 from app.services.redis.redis_setup import (
     get_redis_client,
 )
@@ -221,7 +221,35 @@ def undo_move(request: Request, game_id: str):
 
 @chess_router.post("/voice_to_move_san/")
 def voice_to_move_san(user_input: str, request: Request, game_id: str):
-    """Converts voice input to move in SAN format using LLM."""
+    """Converts voice input to move in SAN format using LLM and current fen position."""
+    try:
+        redis_client = request.app.state.redis_client
+        if not redis_client:
+            log_error("Redis Connection Failed")
+            raise HTTPException(status_code=500, detail="Redis Connection Failed")
 
-    response = voice_to_move(user_input)
-    return {"message": response.strip()}
+        game_data = redis_get_game_data_by_id(
+            game_id=game_id, redis_client=redis_client
+        )
+
+        log_success(f"Game data from reds for id {game_id}: {game_data} ")
+        # reconstruct game instance using the game_data
+        game = ChessGame.from_dict(game_data)
+        log_success(f"Game after recreation:{game}")
+
+        # Get current FEN
+        current_fen = game.get_fen()
+        response = voice_to_move(user_input, current_fen)
+        return {"message": response.strip()}
+
+    except RedisServiceError as re:
+        log_error(f"Redis operation failed: {str(re)}")
+        raise HTTPException(status_code=500, detail=str(re))
+    except ChessServiceError as c:
+        log_error(f"Chess service error: {str(c)}")
+        raise HTTPException(status_code=500, detail=str(c))
+    except DifyServiceError as d:
+        log_error(f"Error while converting move to SAN: {d}")
+        raise HTTPException(
+            status_code=500, detail=f"Error while converting move to SAN: {d}"
+        )
