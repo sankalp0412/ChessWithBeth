@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess, Square } from "chess.js";
 import {
@@ -109,14 +109,6 @@ function App() {
       return newHistory;
     });
   };
-
-  /**
-   * Process the user move:
-   * - Update the game with the move.
-   * - Append the move's SAN to moveHistory.
-   * - Call the backend API (playUserMove) which returns Stockfish’s move in SAN.
-   * - Update moveHistory with Stockfish’s move.
-   */
 
   function setMovetoInvalid() {
     setValidMove((prevMoveState) => {
