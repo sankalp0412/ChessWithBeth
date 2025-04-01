@@ -264,7 +264,7 @@ function App() {
           console.log("Transcript:", transcript);
           //now we make api request convert it to a san move only if transcript is not empty
           if (transcript) {
-            const response = voiceToSan(transcript);
+            const response = voiceToSan(transcript, gameIdRef.current);
             response.then((res) => {
               console.log(res);
               if (res.message === "UNDO") {

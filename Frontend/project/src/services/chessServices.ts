@@ -75,9 +75,9 @@ export const undoMove = async(game_id: string): Promise<undoMoveResponse> => {
   }
 }
 
-export const voiceToSan = async(voiceText: string): Promise<voiceToSanResponse> => {
+export const voiceToSan = async(voiceText: string, game_id: string): Promise<voiceToSanResponse> => {
   try{
-    const response = await api.post<voiceToSanResponse>(`/voice_to_move_san/?user_input=${voiceText}`);
+    const response = await api.post<voiceToSanResponse>(`/voice_to_move_san/?user_input=${voiceText}&game_id=${game_id}`);
     return response.data;
   }
   catch (error) {
