@@ -3,6 +3,7 @@ import api from "./api";  // Import the Axios instance
 // Define a TypeScript type for the API response
 interface StartGameResponse {
   message: string; // Optional field
+  game_id: string
 }
 
 interface moveResponse {
@@ -11,6 +12,9 @@ interface moveResponse {
   stockfish_move: string,
   stockfish_san: string,
   board_fen: string,
+  game_id: string,
+  is_game_over: boolean,
+  winner: string
 }
 interface endGameResponse {
   message: string
@@ -19,6 +23,7 @@ interface endGameResponse {
 interface undoMoveResponse {
   message: string,
   board_fen_after_undo: string,
+  game_id: string
 }
 
 interface voiceToSanResponse {
@@ -37,9 +42,9 @@ export const startGame = async (userElo: number): Promise<StartGameResponse> => 
 };
 
 
-export const playUserMove = async (userMove: string): Promise<moveResponse> => {
+export const playUserMove = async (userMove: string, game_id: string): Promise<moveResponse> => {
   try {
-    const response = await api.post<moveResponse>("/play_move/", { move: userMove });
+    const response = await api.post<moveResponse>(`/play_move/?game_id=${game_id}`, { move: userMove });
     console.log(response.data);
     return response.data;
   } catch (error) {
@@ -48,9 +53,9 @@ export const playUserMove = async (userMove: string): Promise<moveResponse> => {
   }
 }
 
-export const endGame = async(): Promise<endGameResponse> => {
+export const endGame = async(game_id: string): Promise<endGameResponse> => {
   try {
-    const response = await api.post<endGameResponse>("/end_game/");
+    const response = await api.post<endGameResponse>(`/end_game/?game_id=${game_id}`);
     return response.data;
   } catch (error) {
     console.error("Error ending game:", error);
@@ -59,9 +64,9 @@ export const endGame = async(): Promise<endGameResponse> => {
 }
 
 
-export const undoMove = async(): Promise<undoMoveResponse> => {
+export const undoMove = async(game_id: string): Promise<undoMoveResponse> => {
   try{
-    const response = await api.post<undoMoveResponse>("/undo_move/");
+    const response = await api.post<undoMoveResponse>(`/undo_move/?game_id=${game_id}`);
     return response.data;
   }
   catch (error) {
@@ -70,9 +75,9 @@ export const undoMove = async(): Promise<undoMoveResponse> => {
   }
 }
 
-export const voiceToSan = async(voiceText: string): Promise<voiceToSanResponse> => {
+export const voiceToSan = async(voiceText: string, game_id: string): Promise<voiceToSanResponse> => {
   try{
-    const response = await api.post<voiceToSanResponse>(`/voice_to_move_san/?user_input=${voiceText}`);
+    const response = await api.post<voiceToSanResponse>(`/voice_to_move_san/?user_input=${voiceText}&game_id=${game_id}`);
     return response.data;
   }
   catch (error) {
