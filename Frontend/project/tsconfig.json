@@ -2,7 +2,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     },
     "jsx": "react-jsx", // Enable JSX support (recommended for React 17+)
     "target": "es6", // Compile to ES6 (modern JavaScript)
