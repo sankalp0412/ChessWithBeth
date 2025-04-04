@@ -80,14 +80,6 @@ function App() {
       : {};
   };
 
-  // const updateGameFromHistory = (history: string[]) => {
-  //   const newGame = new Chess();
-  //   history.forEach((san) => {
-  //     newGame.move(san);
-  //   });
-  //   setGame(newGame);
-  // };
-
   // -------------------------------------------- Game Actions --------------------------------
 
   const makeAMove = (
@@ -95,6 +87,11 @@ function App() {
   ) => {
     const result = game.move(move);
     if (!result) return null;
+
+    const audio = new Audio("/sounds/move-self.mp3");
+    audio.play().catch((e) => {
+      console.warn("Autoplay blocked:", e);
+    });
 
     const updatedGame = game;
     setGame(updatedGame);
