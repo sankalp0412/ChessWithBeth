@@ -88,10 +88,30 @@ function App() {
     const result = game.move(move);
     if (!result) return null;
 
-    const audio = new Audio("/sounds/move-self.mp3");
-    audio.play().catch((e) => {
-      console.warn("Autoplay blocked:", e);
-    });
+    if (game.isCheckmate()) {
+      const audio1 = new Audio("sounds/move-check.mp3");
+      const audio2 = new Audio("sounds/game-end.mp3");
+      audio1.play();
+      audio2.play();
+    } else if (game.isCheck()) {
+      const audio = new Audio("sounds/move-check.mp3");
+      audio.play();
+    } else if (result.flags == "c") {
+      const audio = new Audio("/sounds/capture.mp3");
+      audio.play().catch((e) => {
+        console.warn("Autoplay blocked:", e);
+      });
+    } else if (result.flags == "k" || result.flags == "q") {
+      const audio = new Audio("/sounds/castle.mp3");
+      audio.play().catch((e) => {
+        console.warn("Autoplay blocked:", e);
+      });
+    } else {
+      const audio = new Audio("/sounds/move-self.mp3");
+      audio.play().catch((e) => {
+        console.warn("Autoplay blocked:", e);
+      });
+    }
 
     const updatedGame = game;
     setGame(updatedGame);

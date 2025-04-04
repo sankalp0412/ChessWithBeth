@@ -28,12 +28,20 @@ function GameControls({
     setGameStarted(true);
     setIsGameOver(false);
     console.log("GAme STarted");
+    const audio = new Audio("sounds/game-start.mp3");
+    audio.play().catch((e) => {
+      console.warn("Autoplay blocked:", e);
+    });
     //Handle elo TODO:
   };
 
   const handleQuitGame = () => {
     setGameStarted(false);
     setIsGameOver(false);
+    const audio = new Audio("sounds/game-end.mp3");
+    audio.play().catch((e) => {
+      console.warn("Autoplay blocked:", e);
+    });
   };
 
   const handleVoiceCommands = () => {
