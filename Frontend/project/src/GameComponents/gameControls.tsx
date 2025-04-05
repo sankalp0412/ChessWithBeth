@@ -93,6 +93,10 @@ function GameControls({
       game
     );
     setGame(updatedGame);
+    const audio = new Audio("/sounds/move-self.mp3");
+    audio.play().catch((e) => {
+      console.warn("Autoplay blocked:", e);
+    });
 
     //API Call
 
