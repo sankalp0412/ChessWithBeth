@@ -44,40 +44,47 @@ export default function ChatWidget() {
       )}
 
       {/* Chat Window */}
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0, transition: { duration: 0.5 } }}
-        >
-          <Card className="w-full h-full p-3 shadow-xl bg-white">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold">Ask Beth</h3>
-              <X className="cursor-pointer" onClick={() => setIsOpen(false)} />
-            </div>
-            <CardContent className="h-48 overflow-y-auto border-t mt-2 p-2">
-              {messages.length === 0 ? (
-                <p className="text-gray-500 text-sm">
-                  Click the button below to talk to Beth.
-                </p>
-              ) : (
-                messages.map((msg, index) => (
-                  <div
-                    key={index}
-                    className="text-sm bg-gray-200 p-2 rounded-lg mb-1"
-                  >
-                    {msg}
-                  </div>
-                ))
-              )}
-            </CardContent>
-            <div className="flex justify-center mt-2">
-              <Button onClick={handleTalkToBeth} disabled={loading}>
-                {loading ? "Talking..." : "Talk to Beth"}
-              </Button>
-            </div>
-          </Card>
-        </motion.div>
-      )}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            key="beth"
+            exit={{ opacity: 0, y: -50, transition: { duration: 0.3 } }}
+            initial={{ opacity: 0, y: -10, scale: 1, x: 0 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.5 } }}
+          >
+            <Card className="w-full h-full p-3 shadow-xl bg-white">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold">Ask Beth</h3>
+                <X
+                  className="cursor-pointer"
+                  onClick={() => setIsOpen(false)}
+                />
+              </div>
+              <CardContent className="h-48 overflow-y-auto border-t mt-2 p-2">
+                {messages.length === 0 ? (
+                  <p className="text-gray-500 text-sm">
+                    Click the button below to talk to Beth.
+                  </p>
+                ) : (
+                  messages.map((msg, index) => (
+                    <div
+                      key={index}
+                      className="text-sm bg-gray-200 p-2 rounded-lg mb-1"
+                    >
+                      {msg}
+                    </div>
+                  ))
+                )}
+              </CardContent>
+              <div className="flex justify-center mt-2">
+                <Button onClick={handleTalkToBeth} disabled={loading}>
+                  {loading ? "Talking..." : "Talk to Beth"}
+                </Button>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

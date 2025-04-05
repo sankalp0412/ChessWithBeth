@@ -3,7 +3,7 @@ import { Chessboard } from "react-chessboard";
 import { Chess, Square } from "chess.js";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Trophy, Clock } from "lucide-react";
+import { Trophy, Clock, Terminal } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import GameControls from "./GameComponents/gameControls";
 import {
@@ -11,6 +11,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 // import { Avatar, AvatarImage, AvatarFallback } from "@radix-ui/react-avatar";
 // import {
 //   useEndGameMutation,
@@ -26,10 +27,15 @@ function App() {
   const [gameStarted, setGameStarted] = useState(false);
   const [squareStyles, setSquareStyles] = useState({});
   const [isGameOver, setIsGameOver] = useState(false);
+  const [alertGameNotStarted, setAlertGameNotStarted] = useState(false);
   // const [moveHistory, setMoveHistory] = useState<string[]>([]);
 
   function onDrop(sourceSquare: string, targetSquare: string) {
-    if (!gameStarted) return false;
+    if (!gameStarted) {
+      setAlertGameNotStarted(true);
+      return false;
+    } //trigger alert
+    setAlertGameNotStarted(false);
     const move = makeAMove({
       from: sourceSquare,
       to: targetSquare,
@@ -133,6 +139,11 @@ function App() {
     ) as HTMLInputElement;
     if (userEloRatingElement) userEloRatingElement.value = "";
     // setMoveHistory([]);
+  }, [gameStarted]);
+
+  useEffect(() => {
+    if (!gameStarted) return;
+    setAlertGameNotStarted(false);
   }, [gameStarted]);
 
   return (
@@ -249,13 +260,31 @@ function App() {
                     <h2 className="text-2xl font-bold  text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 mb-4 ">
                       Game Controls
                     </h2>
-                    <div>
+                    <div className="mb-4">
                       <GameControls
                         setGameStarted={setGameStarted}
                         gameStarted={gameStarted}
                         isGameOver={isGameOver}
                         setIsGameOver={setIsGameOver}
                       />
+                      <AnimatePresence>
+                        {alertGameNotStarted && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2 }}
+                            exit={{ opacity: 0, y: 10 }}
+                          >
+                            <Alert className="my-4" variant="destructive">
+                              <Terminal className="h-4 w-4" />
+                              <AlertTitle className="">Heads up!</AlertTitle>
+                              <AlertDescription className="text-bold">
+                                Click New Game to start Playing!
+                              </AlertDescription>
+                            </Alert>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
                 </Card>
