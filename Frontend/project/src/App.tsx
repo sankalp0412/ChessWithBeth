@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Chessboard } from "react-chessboard";
-import { Chess, Square } from "chess.js";
+import { Chess, Square, Move } from "chess.js";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Trophy, Clock, Terminal } from "lucide-react";
@@ -12,14 +12,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-// import { Avatar, AvatarImage, AvatarFallback } from "@radix-ui/react-avatar";
-// import {
-//   useEndGameMutation,
-//   usePlayMoveMutation,
-//   useStartGameMutation,
-//   useUndoMoveMutation,
-//   useVoiceToSanMutation,
-// } from "./services/hooks";
+import { usePlayMoveMutation } from "./services/hooks";
 
 function App() {
   const [showChessboard, setShowChessboard] = useState(false);
@@ -28,22 +21,10 @@ function App() {
   const [squareStyles, setSquareStyles] = useState({});
   const [isGameOver, setIsGameOver] = useState(false);
   const [alertGameNotStarted, setAlertGameNotStarted] = useState(false);
+  const gameIdRef = useRef("");
   // const [moveHistory, setMoveHistory] = useState<string[]>([]);
 
-  function onDrop(sourceSquare: string, targetSquare: string) {
-    if (!gameStarted) {
-      setAlertGameNotStarted(true);
-      return false;
-    } //trigger alert
-    setAlertGameNotStarted(false);
-    const move = makeAMove({
-      from: sourceSquare,
-      to: targetSquare,
-      promotion: "q",
-    });
-    resetSquareStyles(); // Reset square styles after move if color changed
-    return move !== null;
-  }
+  const { mutate: playUserMove } = usePlayMoveMutation();
 
   const resetSquareStyles = () => {
     setSquareStyles({});
@@ -86,14 +67,7 @@ function App() {
       : {};
   };
 
-  // -------------------------------------------- Game Actions --------------------------------
-
-  const makeAMove = (
-    move: string | { from: string; to: string; promotion?: string }
-  ) => {
-    const result = game.move(move);
-    if (!result) return null;
-
+  const playSound = (game: Chess, result: Move) => {
     if (game.isCheckmate()) {
       const audio1 = new Audio("sounds/move-check.mp3");
       const audio2 = new Audio("sounds/game-end.mp3");
@@ -118,6 +92,58 @@ function App() {
         console.warn("Autoplay blocked:", e);
       });
     }
+  };
+  // -------------------------------------------- Game Actions --------------------------------
+  function onDrop(sourceSquare: string, targetSquare: string) {
+    if (!gameStarted) {
+      setAlertGameNotStarted(true);
+      return false;
+    } //trigger alert
+    setAlertGameNotStarted(false);
+    const move = makeAMove({
+      from: sourceSquare,
+      to: targetSquare,
+      promotion: "q",
+    });
+    resetSquareStyles(); // Reset square styles after move if color changed
+    return move !== null;
+  }
+  const makeAMove = (
+    move: string | { from: string; to: string; promotion?: string }
+  ) => {
+    const result = game.move(move);
+    if (!result) return null;
+
+    playSound(game, result);
+
+    const updatedGame = game;
+    setGame(updatedGame);
+
+    if (game.isGameOver()) {
+      setIsGameOver(true);
+    }
+    playUserMove(
+      { userMove: result.san, game_id: gameIdRef.current },
+      {
+        onSuccess: (data) => {
+          console.log(`Played Move: ${data}`);
+          if (data.is_game_over) {
+            setIsGameOver(true);
+          }
+          playStockFishMove(data.stockfish_san);
+        },
+        onError: (error) => {
+          console.error(`Error while playing move: ${error}`);
+        },
+      }
+    );
+  };
+
+  const playStockFishMove = (stockfish_san: string) => {
+    const result = game.move(stockfish_san);
+    if (!result) return null;
+
+    playSound(game, result);
 
     const updatedGame = game;
     setGame(updatedGame);
@@ -127,6 +153,7 @@ function App() {
     }
   };
 
+  // ----------- UseEffects ---------------------------------------
   useEffect(() => {
     //Handle reset if Quit game was inititaed
     if (gameStarted) return;
@@ -245,7 +272,7 @@ function App() {
                       }}
                       customDarkSquareStyle={{ backgroundColor: "#8363aa" }}
                       customLightSquareStyle={{ backgroundColor: "#EDE7F6" }}
-                      arePremovesAllowed={true}
+                      // arePremovesAllowed={true}
                       onSquareClick={() => resetSquareStyles()}
                     />
                   </div>
@@ -266,6 +293,9 @@ function App() {
                         gameStarted={gameStarted}
                         isGameOver={isGameOver}
                         setIsGameOver={setIsGameOver}
+                        gameIdRef={gameIdRef}
+                        game={game}
+                        setGame={setGame}
                       />
                       <AnimatePresence>
                         {alertGameNotStarted && (

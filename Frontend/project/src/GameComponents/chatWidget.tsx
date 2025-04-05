@@ -39,7 +39,7 @@ export default function ChatWidget() {
           onClick={() => setIsOpen(true)}
         >
           <MessageCircle size={20} />
-          <span className="hidden sm:block">Stuck? Ask Beth!</span>
+          <span className="hidden sm:block">Need Help? Ask Beth!</span>
         </Button>
       )}
 
