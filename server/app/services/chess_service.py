@@ -24,21 +24,27 @@ class ChessGame:
 
     def __init__(self, game_id: str):
         try:
+            # Initialize Stockfish engine
             self.stockfish_engine = Stockfish(
-                path="/opt/homebrew/opt/stockfish/bin/stockfish", depth=15
+                path="/opt/homebrew/opt/stockfish/bin/stockfish",
+                parameters={
+                    "Hash": 2048,
+                    "UCI_LimitStrength": True,
+                    "UCI_Elo": 1320,
+                },
             )
             log_success("Stockfish engine initialized successfully")
 
-            # Update engine parameters with error handling
-            try:
-                self.stockfish_engine.update_engine_parameters(
-                    {"Hash": 2048, "UCI_Chess960": "false", "Skill Level": 0}
-                )
-                log_success("Stockfish parameters updated successfully")
-            except Exception as e:
-                log_error(f"Failed to update Stockfish parameters: {str(e)}")
-                raise ChessServiceError(f"Engine parameter update failed: {str(e)}")
-
+            self.engine = chess.engine.SimpleEngine.popen_uci(
+                "/opt/homebrew/opt/stockfish/bin/stockfish",
+            )
+            self.engine.configure(
+                {
+                    "UCI_LimitStrength": True,
+                    "UCI_Elo": 1320,
+                    "Hash": 2048,
+                }
+            )
             self.board = chess.Board()
             self.game_id = game_id
 
@@ -53,7 +59,9 @@ class ChessGame:
 
     def setup_stockfish_elo(self, user_elo: int):
         """Sets the Stockfish engine's ELO rating."""
-        self.stockfish_engine.set_elo_rating(user_elo)
+        self.stockfish_engine.update_engine_parameters(
+            {"UCI_LimitStrength": True, "UCI_Elo": user_elo}
+        )
         self.elo_level = user_elo
 
     def to_dict(self):
@@ -83,18 +91,13 @@ class ChessGame:
     def set_board_from_fen(
         self, fen: str, stockfish_elo: str | None, move_stack: List[chess.Move]
     ):
-        # self.board = chess.Board(fen=fen) # i dont need to do this because i am pushing now
         for move in move_stack:
             self.board.push(move)
         self.move_stack = move_stack
         self.stockfish_engine.set_fen_position(fen, send_ucinewgame_token=False)
         if stockfish_elo:
             self.setup_stockfish_elo(user_elo=stockfish_elo)
-
-    def reset(self):
-        """Resets the game."""
-        self.board = chess.Board()
-        self.stockfish_engine.set_position([])
+            self.engine.configure({"UCI_Elo": stockfish_elo})
 
     def make_user_move(self, move: str):
         """Applies the user's move (in SAN notation)."""
@@ -121,7 +124,7 @@ class ChessGame:
             print(f"Error processing move: {e}")
             raise ValueError("Invalid or illegal move")
 
-    def get_engine_move(self):
+    async def get_engine_move(self):
         """Gets Stockfish's best move and applies it."""
         if self.board.is_game_over():
             return None
@@ -130,7 +133,17 @@ class ChessGame:
         ]
         # print("candidate_moves", candidate_moves)
         # result = random.choice(candidate_moves)
-        result = candidate_moves[0]  # Pick the best move
+        log_debug(f"Stockfish Max Candidate Moves: {candidate_moves}")
+        new_result = self.engine.play(self.board, chess.engine.Limit(time=2))
+        log_debug(f"Play Result from Self.engine:{new_result}")
+        # candidate_moves_using_engine = await self.get_top_moves(
+        #     self.engine, self.board, 3
+        # )
+        # log_debug(f"Candidate Moves from self.engine: {candidate_moves_using_engine}")
+
+        # result = candidate_moves[0]  # Pick the best move
+        # pick the result based on chess.engine configured as per elo
+        result = new_result.move.uci()
         # Make move in stockfish
         try:
             self.stockfish_engine.make_moves_from_current_position([result])
@@ -139,7 +152,6 @@ class ChessGame:
             move_san = self.board.san(move)
             self.board.push(move)
             self.move_stack.append(move)
-            # print(self.stockfish_engine.get_board_visual())
             # also return san move
             log_success(f"Board after engine move: \n {self.board}")
             is_game_over = self.board.is_game_over()
@@ -149,13 +161,29 @@ class ChessGame:
             raise ChessServiceError(f"Invalid Move , UCI String invalid: {e}")
         except StockfishException as s:
             log_error(f"Stockfish Exception while making engine move: {s}")
-            raise ChessGameError(f"Stockfish Exception while making engine move: {s}")
+            raise ChessServiceError(
+                f"Stockfish Exception while making engine move: {s}"
+            )
+        except Exception as e:
+            log_error(f"Engine Error: {e}")
+            raise ChessServiceError(f"Engine Error: {e}")
+
+    # async def get_top_best_stockfish_moves(self, engine: chess.engine, board: chess.Board, n=3):
+    #     """Get top moves using the engine analysis."""
+    #     top_moves = []
+    #     analysis = engine.analyse(board, chess.engine.Limit(time=3.0), multipv=3)
+    #     log_debug(f"Options:{engine.options}")
+    #     multipv = analysis[0]["pv"]
+    #     for i in range(3):
+    #         top_moves.append(multipv[i].uci())
+
+    #     return top_moves
 
     def undo_move(self):
         """Undo the last move."""
         try:
             log_success(f"Board before undoing: \n{self.board}")
-            log_debug(f"Board move stack:\n {self.board.move_stack}")
+            log_debug(f"Board move stack before undo:\n {self.board.move_stack}")
             self.board.pop()  # Engine move undone
             self.board.pop()  # User move undone
             self.move_stack.pop()
@@ -163,6 +191,7 @@ class ChessGame:
             self.stockfish_engine.set_fen_position(
                 self.board.fen(), send_ucinewgame_token=False
             )
+            # self.engine.TODO: check if engine update is required
             return self.board.fen()
         except IndexError as i:
             log_error(f"Index error while takeback , move Stack empty:{i}")
@@ -181,10 +210,11 @@ class ChessGame:
         """Checks if the game is over."""
         return self.board.is_game_over()
 
-    def quit_engine(self):
+    def quit_game(self):
         """Stops the Stockfish engine."""
         self.stockfish_engine.set_position([])
-        self.reset()
+        self.engine.quit()
+        self.board = chess.Board()
 
 
 # Dependency Injection to provide a game instance
