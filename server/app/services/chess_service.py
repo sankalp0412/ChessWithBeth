@@ -6,7 +6,7 @@ import random
 from fastapi import Request
 from app.services.redis.redis_services import redis_get_game_data_by_id
 from app.services.redis.redis_setup import get_redis_client
-from app.services.engine.engine_manager import EngineManager
+from app.services.engine.engine_manager import EngineManager, EngineManagerError
 from app.utils.error_handling import log_error, log_success, ChessGameError, log_debug
 from chess import InvalidMoveError, Move
 from typing import List
@@ -40,6 +40,9 @@ class ChessGame:
             log_success(
                 f"Chess Game instances created for game ID: {game_id} and Engine initialized Successfully : {self.engine}"
             )
+        except EngineManagerError as eme:
+            log_error(f"EngineManagerError while initializing chess game: {str(eme)}")
+            raise ChessServiceError(f"EngineManagerError: {str(eme)}")
 
         except Exception as e:
             log_error(f"Failed to initialize chess game: {str(e)}")
