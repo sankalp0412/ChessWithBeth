@@ -19,6 +19,8 @@ interface GameControlsProps {
   gameIdRef: React.MutableRefObject<string>;
   game: Chess;
   setGame: React.Dispatch<React.SetStateAction<Chess>>;
+  errorStartingGame: boolean;
+  setErrorStartingGame: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 function GameControls({
@@ -29,6 +31,8 @@ function GameControls({
   gameIdRef,
   game,
   setGame,
+  errorStartingGame,
+  setErrorStartingGame,
 }: GameControlsProps) {
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
 
@@ -37,9 +41,6 @@ function GameControls({
   const { mutate: undoMove } = useUndoMoveMutation();
 
   const handleStartGame = () => {
-    setGameStarted(true);
-    setIsGameOver(false);
-    console.log("GAme STarted");
     const audio = new Audio("sounds/game-start.mp3");
     audio.play().catch((e) => {
       console.warn("Autoplay blocked:", e);
@@ -47,16 +48,22 @@ function GameControls({
     const userEloRatingElement = document.getElementById(
       "userEloRating"
     ) as HTMLInputElement;
-    let userEloRating = 1200; //default
+    let userEloRating = 1320; //default
     if (userEloRatingElement && userEloRatingElement.value.length) {
-      userEloRating = parseInt(userEloRatingElement.value);
+      const inputElo = parseInt(userEloRatingElement.value);
+      if (inputElo >= 1320) userEloRating = inputElo;
     }
     startGame(userEloRating, {
       onSuccess: (data) => {
+        setGameStarted(true);
+        setIsGameOver(false);
+        setErrorStartingGame(false);
+        console.log("GAme STarted");
         console.log("Game started successfully:", data);
         gameIdRef.current = data.game_id;
       },
       onError: (error) => {
+        setErrorStartingGame(true);
         console.error("Error starting game:", error);
       },
     });
@@ -124,7 +131,7 @@ function GameControls({
             exit={{ opacity: 0, y: -10, transition: { duration: 0.3 } }}
           >
             <Input
-              placeholder="Add your ELO (Default 1200)"
+              placeholder="Add your ELO (Default/Minimum 1320)"
               className="text-white flex-1 min-w-[200px]"
               id="userEloRating"
             />

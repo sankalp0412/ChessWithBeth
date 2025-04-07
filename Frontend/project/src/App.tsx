@@ -21,10 +21,11 @@ function App() {
   const [squareStyles, setSquareStyles] = useState({});
   const [isGameOver, setIsGameOver] = useState(false);
   const [alertGameNotStarted, setAlertGameNotStarted] = useState(false);
+  const [errorStartingGame, setErrorStartingGame] = useState(false);
   const gameIdRef = useRef("");
   // const [moveHistory, setMoveHistory] = useState<string[]>([]);
 
-  const { mutate: playUserMove } = usePlayMoveMutation();
+  const { mutate: playUserMove, isPending } = usePlayMoveMutation();
 
   const resetSquareStyles = () => {
     setSquareStyles({});
@@ -173,12 +174,22 @@ function App() {
     setAlertGameNotStarted(false);
   }, [gameStarted]);
 
+  // ---------------------------------- UI Data--------------------------------------
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-6">
       <motion.div
         initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1, ease: "easeOut", layout: true }}
+        layout="position"
+        transition={{
+          duration: 1,
+          ease: "easeOut",
+          layout: {
+            duration: 0.8,
+            type: "tween",
+          },
+        }}
         className={`mb-8
           ${
             gameStarted
@@ -207,42 +218,44 @@ function App() {
             </Button>
           )}
         </div>
-        {gameStarted && (
-          <motion.div
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: "easeIn", layout: true }}
-            className="flex flex-col"
-          >
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-2">
-                <Trophy className="text-yellow-500" />
-                <div className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
-                  Game Status
+        <AnimatePresence>
+          {gameStarted && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 0.8, y: 0 }}
+              transition={{ duration: 0.8, ease: "easeIn", layout: true }}
+              className="flex flex-col"
+            >
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <Trophy className="text-yellow-500" />
+                  <div className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+                    Game Status
+                  </div>
                 </div>
+
+                <div className="flex items-center gap-2">
+                  <Clock className="text-blue-500" />
+                  <p className="text-lg font-medium text-gray-300">
+                    {game.isGameOver()
+                      ? "Game Over!"
+                      : `${game.turn() === "w" ? "White" : "Black"}'s turn`}
+                  </p>
+                </div>
+
+                {game.isCheckmate() && (
+                  <p className="text-xl font-bold text-red-600">
+                    Checkmate! {game.turn() === "w" ? "Black" : "White"} wins!
+                  </p>
+                )}
+
+                {game.isDraw() && (
+                  <p className="text-xl font-bold text-blue-600">Draw!</p>
+                )}
               </div>
-
-              <div className="flex items-center gap-2">
-                <Clock className="text-blue-500" />
-                <p className="text-lg font-medium text-gray-300">
-                  {game.isGameOver()
-                    ? "Game Over!"
-                    : `${game.turn() === "w" ? "White" : "Black"}'s turn`}
-                </p>
-              </div>
-
-              {game.isCheckmate() && (
-                <p className="text-xl font-bold text-red-600">
-                  Checkmate! {game.turn() === "w" ? "Black" : "White"} wins!
-                </p>
-              )}
-
-              {game.isDraw() && (
-                <p className="text-xl font-bold text-blue-600">Draw!</p>
-              )}
-            </div>
-          </motion.div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       <AnimatePresence>
@@ -296,6 +309,8 @@ function App() {
                         gameIdRef={gameIdRef}
                         game={game}
                         setGame={setGame}
+                        errorStartingGame={errorStartingGame}
+                        setErrorStartingGame={setErrorStartingGame}
                       />
                       <AnimatePresence>
                         {alertGameNotStarted && (
@@ -315,6 +330,29 @@ function App() {
                           </motion.div>
                         )}
                       </AnimatePresence>
+
+                      <AnimatePresence>
+                        {errorStartingGame && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2 }}
+                            exit={{ opacity: 0, y: 10 }}
+                          >
+                            <Alert className="my-4" variant="destructive">
+                              <Terminal className="h-4 w-4" />
+                              <AlertTitle className="">Heads up!</AlertTitle>
+                              <AlertDescription className="text-bold">
+                                Sorry, there was an error while starting game,
+                                please try again later.
+                              </AlertDescription>
+                            </Alert>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      {isPending && (
+                        <motion.div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white absolute bottom-2 right-2"></motion.div>
+                      )}
                     </div>
                   </div>
                 </Card>
