@@ -1,3 +1,4 @@
+import os
 import chess
 import chess.engine
 from stockfish import Stockfish, StockfishException
@@ -5,11 +6,15 @@ import random
 from fastapi import Request
 from app.services.redis.redis_services import redis_get_game_data_by_id
 from app.services.redis.redis_setup import get_redis_client
+from app.services.engine.engine_manager import EngineManager
 from app.utils.error_handling import log_error, log_success, ChessGameError, log_debug
 from chess import InvalidMoveError, Move
 from typing import List
+from dotenv import load_dotenv
+
 
 redis_client = get_redis_client()
+load_dotenv()
 
 
 class ChessServiceError(ChessGameError):
@@ -19,40 +24,23 @@ class ChessServiceError(ChessGameError):
 class ChessGame:
     """Handles the game state and Stockfish engine."""
 
-    elo_level = None
-    move_stack = []
-
-    def __init__(self, game_id: str):
+    def __init__(
+        self, game_id: str, engine_manager: EngineManager, elo_level: str = 1320
+    ):
         try:
-            # Initialize Stockfish engine
-            self.stockfish_engine = Stockfish(
-                path="/opt/homebrew/opt/stockfish/bin/stockfish",
-                parameters={
-                    "Hash": 2048,
-                    "UCI_LimitStrength": True,
-                    "UCI_Elo": 1320,
-                },
-            )
-            log_success("Stockfish engine initialized successfully")
-
-            self.engine = chess.engine.SimpleEngine.popen_uci(
-                "/opt/homebrew/opt/stockfish/bin/stockfish",
-            )
-            self.engine.configure(
-                {
-                    "UCI_LimitStrength": True,
-                    "UCI_Elo": 1320,
-                    "Hash": 2048,
-                }
+            self.engine = engine_manager.create_or_get_engine(
+                game_id=game_id, elo_level=elo_level
             )
             self.board = chess.Board()
+            self.move_stack = (
+                []
+            )  # Required to recreate board move by move for the undo functionality
+            self.elo_level = elo_level
             self.game_id = game_id
-
-        except FileNotFoundError:
-            log_error("Stockfish engine not found at specified path")
-            raise ChessServiceError(
-                "Stockfish engine not found. Please ensure it's installed correctly."
+            log_success(
+                f"Chess Game instances created for game ID: {game_id} and Engine initialized Successfully : {self.engine}"
             )
+
         except Exception as e:
             log_error(f"Failed to initialize chess game: {str(e)}")
             raise ChessServiceError(f"Chess game initialization failed: {str(e)}")
@@ -69,7 +57,7 @@ class ChessGame:
         return {
             "game_id": self.game_id,
             "fen": self.get_fen(),
-            "stockfish_elo": self.elo_level,
+            "elo_level": self.elo_level,
             "move_stack": self.move_stack,
         }
 
@@ -218,5 +206,9 @@ class ChessGame:
 
 
 # Dependency Injection to provide a game instance
-def create_and_get_new_chess_game(game_id: str) -> ChessGame:
-    return ChessGame(game_id=game_id)
+def create_and_get_new_chess_game(
+    game_id: str, elo_level: str | int, engine_manager: EngineManager
+) -> ChessGame:
+    return ChessGame(
+        game_id=game_id, elo_level=elo_level, engine_manager=engine_manager
+    )

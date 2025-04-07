@@ -16,19 +16,19 @@ from app.services.redis.redis_services import (
     RedisServiceError,
     redis_delete_game_by_id,
 )
+from app.services.engine.engine_manager import EngineManager
+from app.services.engine.dependencies import get_engine_manager
 
 from app.utils.error_handling import log_error, log_success, ChessGameError, log_debug
 
 chess_router = APIRouter()
 
-# redis_client = get_redis_client()
-
 
 @chess_router.post("/start_game/")
 def start_new_game(
     request: Request,
-    user_elo: int = 1200,
-    # game: ChessGame = Depends(get_chess_game),  # remove the depends line
+    user_elo: int = 1320,
+    engine_manager: EngineManager = Depends(get_engine_manager),
 ):
     """Start a new chess game."""
 
@@ -41,11 +41,9 @@ def start_new_game(
     try:
         game_id = redis_create_new_game_id(redis_client=redis_client)
         # now we create a new ChessGame instance
-        game = create_and_get_new_chess_game(game_id=game_id)
-
-        # update elo
-        game.setup_stockfish_elo(user_elo)
-
+        game: ChessGame = create_and_get_new_chess_game(
+            game_id=game_id, elo_level=user_elo, engine_manager=engine_manager
+        )
         # now we insert this in redis
         redis_set_game_by_id(
             game_id=game_id, redis_client=redis_client, data=game.to_dict()
@@ -55,7 +53,7 @@ def start_new_game(
             "message": "New game started",
             "board_fen": game.get_fen(),
             "game_id": game_id,
-            "StockFish_Elo": game.stockfish_engine.get_parameters()["UCI_Elo"],
+            "StockFish_Elo": user_elo,
         }
 
     except RedisServiceError as e:
