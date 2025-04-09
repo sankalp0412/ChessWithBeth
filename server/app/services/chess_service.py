@@ -65,12 +65,14 @@ class ChessGame:
         }
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data, engine_manager: EngineManager):
         try:
-            game = cls(data["game_id"])
-            game.set_board_from_fen(
-                data["fen"], data["stockfish_elo"], data["move_stack"]
+            game = cls(
+                data["game_id"],
+                engine_manager=engine_manager,
+                elo_level=data["elo_level"],
             )
+            game.set_board_from_fen(data["fen"], data["move_stack"])
             log_success(f"Created new Game instance from data:{game}")
             return game
         except Exception as e:
@@ -79,16 +81,17 @@ class ChessGame:
                 f"Error Creating Game from dictionary data:{str(e)}"
             )
 
-    def set_board_from_fen(
-        self, fen: str, stockfish_elo: str | None, move_stack: List[chess.Move]
-    ):
-        for move in move_stack:
-            self.board.push(move)
-        self.move_stack = move_stack
-        self.stockfish_engine.set_fen_position(fen, send_ucinewgame_token=False)
-        if stockfish_elo:
-            self.setup_stockfish_elo(user_elo=stockfish_elo)
-            self.engine.configure({"UCI_Elo": stockfish_elo})
+    def set_board_from_fen(self, fen: str, move_stack: List[chess.Move]):
+        try:
+            for move in move_stack:
+                self.board.push(move)
+            self.move_stack = move_stack
+            log_success(
+                f"Board updated successfully with FEN: {self.board.fen()} and move stack: {self.move_stack}"
+            )
+        except Exception as e:
+            log_error("Error updating board state:{e}")
+            raise ChessServiceError(f"Error Updating board state:{e}")
 
     def make_user_move(self, move: str):
         """Applies the user's move (in SAN notation)."""
@@ -201,10 +204,11 @@ class ChessGame:
         """Checks if the game is over."""
         return self.board.is_game_over()
 
-    def quit_game(self):
+    def quit_game(self, engine_manager: EngineManager):
         """Stops the Stockfish engine."""
-        self.stockfish_engine.set_position([])
-        self.engine.quit()
+        # remove game from engine manger
+        engine_manager.close_engine_by_id(game_id=self.game_id)
+        # reset board state
         self.board = chess.Board()
 
 

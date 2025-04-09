@@ -35,6 +35,9 @@ class EngineManager:
         try:
             if game_id not in self._engine_map:
                 self._engine_map[game_id] = self.create_engine(elo_level)
+                log_success(f"Created new engine instance for game_id:{game_id}")
+            else:
+                log_success(f"Engine Instance already present for game_id : {game_id}")
             return self._engine_map[game_id]
         except EngineError as ee:
             log_error(f"Engine Error while initializing for Game ID : {game_id} : {ee}")

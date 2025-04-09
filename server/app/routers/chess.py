@@ -144,37 +144,41 @@ def start_new_game(
 #         raise HTTPException(status_code=400, detail=f"Invalid or illegal move {v}")
 
 
-# @chess_router.post("/end_game/")
-# def end_game(request: Request, game_id: str):
-#     """Ends the game and stops the engine."""
+@chess_router.post("/end_game/")
+def end_game(
+    request: Request,
+    game_id: str,
+    engine_manager: EngineManager = Depends(get_engine_manager),
+):
+    """Ends the game and stops the engine."""
 
-#     try:
-#         redis_client = request.app.state.redis_client
-#         if not redis_client:
-#             log_error("Redis Connection Failed")
-#             raise HTTPException(status_code=500, detail="Redis Connection Failed")
+    try:
+        redis_client = request.app.state.redis_client
+        if not redis_client:
+            log_error("Redis Connection Failed")
+            raise HTTPException(status_code=500, detail="Redis Connection Failed")
 
-#         game_data = redis_get_game_data_by_id(
-#             game_id=game_id, redis_client=redis_client
-#         )
+        game_data = redis_get_game_data_by_id(
+            game_id=game_id, redis_client=redis_client
+        )
 
-#         log_success(
-#             f"Game data from redis before playing user_move for id {game_id}: {game_data} "
-#         )
-#         # reconstruct game instance using the game_data
-#         game = ChessGame.from_dict(game_data)
-#         log_success(f"Game after recreation:{game}")
+        log_success(
+            f"Game data from redis before playing user_move for id {game_id}: {game_data} "
+        )
+        # reconstruct game instance using the game_data
+        game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
+        log_success(f"Game after recreation:{game}")
 
-#         game.quit_game()
+        game.quit_game(engine_manager=engine_manager)
 
-#         # delete game from redis
-#         message = redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
-#         return {"message": message}
+        # delete game from redis
+        message = redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
+        return {"message": message}
 
-#     except RedisServiceError as re:
-#         raise HTTPException(status_code=500, detail=str(re))
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error ending game:{e}")
+    except RedisServiceError as re:
+        raise HTTPException(status_code=500, detail=str(re))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error ending game:{e}")
 
 
 # @chess_router.post("/undo_move/")
