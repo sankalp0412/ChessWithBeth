@@ -96,7 +96,6 @@ class ChessGame:
     def make_user_move(self, move: str):
         """Applies the user's move (in SAN notation)."""
         log_debug(f"User chess move as coming from frontend: {move}")
-        log_debug(f"Move Stack before making user move:\n {self.move_stack}")
         try:
             # Convert SAN to a Move object
             chess_move = self.board.parse_san(move)
@@ -109,47 +108,30 @@ class ChessGame:
                 self.move_stack.append(chess_move)
                 log_debug(f"Move Stack after user move: \n {self.move_stack}")
                 print("Board after pushing the move\n", self.board)
-                # Also make the move in Stockfish (using UCI notation)
-                # Stockish needs the move in Full algebraic notation
-                self.stockfish_engine.make_moves_from_current_position([chess_move])
             else:
-                raise ValueError("Illegal move")
-        except ValueError as e:
-            print(f"Error processing move: {e}")
-            raise ValueError("Invalid or illegal move")
+                raise ValueError("Illegal move by User")
+        except Exception as e:
+            log_error(f"Error playing user move: {e}")
+            raise ChessServiceError(f"Error playing user move: {e}")
 
     async def get_engine_move(self):
         """Gets Stockfish's best move and applies it."""
+        # Check if game is over after user move
         if self.board.is_game_over():
             return None
-        candidate_moves = [
-            move["Move"] for move in self.stockfish_engine.get_top_moves(3)
-        ]
-        # print("candidate_moves", candidate_moves)
-        # result = random.choice(candidate_moves)
-        log_debug(f"Stockfish Max Candidate Moves: {candidate_moves}")
-        new_result = self.engine.play(self.board, chess.engine.Limit(time=2))
-        log_debug(f"Play Result from Self.engine:{new_result}")
-        # candidate_moves_using_engine = await self.get_top_moves(
-        #     self.engine, self.board, 3
-        # )
-        # log_debug(f"Candidate Moves from self.engine: {candidate_moves_using_engine}")
-
-        # result = candidate_moves[0]  # Pick the best move
-        # pick the result based on chess.engine configured as per elo
-        result = new_result.move.uci()
-        # Make move in stockfish
         try:
-            self.stockfish_engine.make_moves_from_current_position([result])
+            result = self.engine.play(self.board, chess.engine.Limit(time=2))
+            log_debug(f"Play Result from Self.engine:{result}")
+            engine_move = result.move.uci()
             # Make move in board
-            move = chess.Move.from_uci(result)  # this move is a Move object
+            move = chess.Move.from_uci(engine_move)  # this move is a Move object
             move_san = self.board.san(move)
             self.board.push(move)
             self.move_stack.append(move)
             # also return san move
             log_success(f"Board after engine move: \n {self.board}")
             is_game_over = self.board.is_game_over()
-            return move.uci(), move_san, is_game_over
+            return engine_move, move_san, is_game_over
         except InvalidMoveError as e:
             log_error(f"Invalid Move , UCI String invalid: {e}")
             raise ChessServiceError(f"Invalid Move , UCI String invalid: {e}")
@@ -176,16 +158,11 @@ class ChessGame:
     def undo_move(self):
         """Undo the last move."""
         try:
-            log_success(f"Board before undoing: \n{self.board}")
-            log_debug(f"Board move stack before undo:\n {self.board.move_stack}")
             self.board.pop()  # Engine move undone
             self.board.pop()  # User move undone
             self.move_stack.pop()
             self.move_stack.pop()
-            self.stockfish_engine.set_fen_position(
-                self.board.fen(), send_ucinewgame_token=False
-            )
-            # self.engine.TODO: check if engine update is required
+            log_success(f"Board after undo: \n {self.board}")
             return self.board.fen()
         except IndexError as i:
             log_error(f"Index error while takeback , move Stack empty:{i}")
