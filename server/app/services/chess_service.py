@@ -1,6 +1,7 @@
 import os
 import chess
 import chess.engine
+from chess.engine import AnalysisResult, AnalysisComplete
 from stockfish import Stockfish, StockfishException
 import random
 from fastapi import Request
@@ -144,16 +145,46 @@ class ChessGame:
             log_error(f"Engine Error: {e}")
             raise ChessServiceError(f"Engine Error: {e}")
 
-    # async def get_top_best_stockfish_moves(self, engine: chess.engine, board: chess.Board, n=3):
-    #     """Get top moves using the engine analysis."""
-    #     top_moves = []
-    #     analysis = engine.analyse(board, chess.engine.Limit(time=3.0), multipv=3)
-    #     log_debug(f"Options:{engine.options}")
-    #     multipv = analysis[0]["pv"]
-    #     for i in range(3):
-    #         top_moves.append(multipv[i].uci())
+    async def get_top_stockfish_moves(self):
+        """Get top moves using the engine analysis."""
+        try:
+            if self.is_game_over():
+                return []
+            n = min(3, len(list(self.board.legal_moves)))
+            with self.engine.analysis(
+                board=self.board,
+                options={"UCI_Elo": 3000},
+                limit=chess.engine.Limit(depth=25),
+            ) as analysis:
+                top_moves = []
+                seen_moves = set()  # Track unique moves
+                analysis.wait()
 
-    #     return top_moves
+                for info in analysis:
+                    if "pv" in info and len(top_moves) < n:
+                        move = info["pv"][0]
+                        if move.uci() not in seen_moves:  # Check for duplicates
+                            seen_moves.add(move.uci())  # Add to the set
+                            score = info["score"].relative
+                            top_moves.append(
+                                {
+                                    "move": move.uci(),
+                                    "score": (
+                                        score.score() / 100
+                                        if not score.is_mate()
+                                        else f"Mate in {score.mate()}"
+                                    ),
+                                }
+                            )
+                        if len(top_moves) >= n:
+                            break
+
+                return top_moves
+        except Exception as e:
+            log_error(f"Error while fetching top moves:{e}")
+            raise ChessServiceError(f"Error while fetching top moves:{e}")
+        except AnalysisComplete as ac:
+            log_debug(f"Analysis completed for best move")
 
     def undo_move(self):
         """Undo the last move."""

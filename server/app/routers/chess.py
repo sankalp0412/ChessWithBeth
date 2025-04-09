@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import APIRouter, Request, Depends, HTTPException
 from app.models.chess_models import MoveInput
 from app.services.chess_service import (
@@ -224,6 +225,35 @@ def undo_move(
     except ChessServiceError as c:
         log_error(f"Chess service error: {str(c)}")
         raise HTTPException(status_code=500, detail=str(c))
+
+
+@chess_router.get("/get_top_moves")
+async def get_top_moves(
+    game_id: str,
+    request: Request,
+    engine_manager: EngineManager = Depends(get_engine_manager),
+):
+    """Gets Maximum of 3 top moves at the position"""
+    try:
+        redis_client = request.app.state.redis_client
+        if not redis_client:
+            log_error("Redis Connection Failed")
+            raise HTTPException(status_code=500, detail="Redis Connection Failed")
+
+        game_data = redis_get_game_data_by_id(
+            game_id=game_id, redis_client=redis_client
+        )
+
+        log_success(f"Game data from reds for id {game_id}: {game_data} ")
+        # reconstruct game instance using the game_data
+        game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
+        log_success(f"Game after recreation:{game}")
+
+        top_moves: List = await game.get_top_stockfish_moves()
+
+        return {game_id: game_id, "top_moves": top_moves, "fen": game.get_fen()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching top moves:{e}")
 
 
 @chess_router.post("/voice_to_move_san/")
