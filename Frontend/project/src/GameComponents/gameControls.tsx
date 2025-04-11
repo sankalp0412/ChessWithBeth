@@ -76,7 +76,7 @@ function GameControls({
               setErrorMessage("Illegal move. Please try again.");
             } else {
               console.log("Move to play :", dify_response);
-              setErrorMessage(null); // Clear any previous error
+              setErrorMessage(""); // Clear any previous error
               setDifyVoiceMove("");
               setDifyVoiceMove(dify_response);
             }
@@ -228,7 +228,10 @@ function GameControls({
                   : "bg-gray-500 hover:bg-gray-600"
               } text-white font-medium flex items-center justify-center gap-2 transition-colors`}
               variant="secondary"
-              onClick={toggleVoice}
+              onClick={() => {
+                toggleVoice();
+                setErrorMessage("");
+              }}
               disabled={isGameOver}
             >
               {isVoiceEnabled ? (
