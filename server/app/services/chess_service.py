@@ -119,7 +119,7 @@ class ChessGame:
         """Gets Stockfish's best move and applies it."""
         # Check if game is over after user move
         if self.board.is_game_over():
-            return None
+            return None, None, None
         try:
             result = self.engine.play(self.board, chess.engine.Limit(time=2))
             log_debug(f"Play Result from Self.engine:{result}")

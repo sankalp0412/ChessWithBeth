@@ -97,6 +97,9 @@ async def play_user_move(
         stockfish_move, stockfish_move_san, is_game_over = await game.get_engine_move()
 
         if not stockfish_move or not stockfish_move_san:
+            # Game over after user move
+            game.quit_game(engine_manager=engine_manager)
+            redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
             return {
                 "message": "Game Over after user Move",
                 "user_move": move_input.move,
@@ -110,6 +113,8 @@ async def play_user_move(
 
         if is_game_over:
             # Game over after engine move
+            game.quit_game(engine_manager=engine_manager)
+            redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
             return {
                 "message": "Game Over after Engine Move",
                 "user_move": move_input.move,
