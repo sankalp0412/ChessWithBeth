@@ -1,3 +1,4 @@
+from typing import List
 from fastapi import APIRouter, Request, Depends, HTTPException
 from app.models.chess_models import MoveInput
 from app.services.chess_service import (
@@ -16,19 +17,19 @@ from app.services.redis.redis_services import (
     RedisServiceError,
     redis_delete_game_by_id,
 )
+from app.services.engine.engine_manager import EngineManager
+from app.services.engine.dependencies import get_engine_manager
 
 from app.utils.error_handling import log_error, log_success, ChessGameError, log_debug
 
 chess_router = APIRouter()
 
-# redis_client = get_redis_client()
-
 
 @chess_router.post("/start_game/")
 def start_new_game(
     request: Request,
-    user_elo: int = 1200,
-    # game: ChessGame = Depends(get_chess_game),  # remove the depends line
+    user_elo: int = 1320,
+    engine_manager: EngineManager = Depends(get_engine_manager),
 ):
     """Start a new chess game."""
 
@@ -41,11 +42,9 @@ def start_new_game(
     try:
         game_id = redis_create_new_game_id(redis_client=redis_client)
         # now we create a new ChessGame instance
-        game = create_and_get_new_chess_game(game_id=game_id)
-
-        # update elo
-        game.setup_stockfish_elo(user_elo)
-
+        game: ChessGame = create_and_get_new_chess_game(
+            game_id=game_id, elo_level=user_elo, engine_manager=engine_manager
+        )
         # now we insert this in redis
         redis_set_game_by_id(
             game_id=game_id, redis_client=redis_client, data=game.to_dict()
@@ -55,7 +54,7 @@ def start_new_game(
             "message": "New game started",
             "board_fen": game.get_fen(),
             "game_id": game_id,
-            "StockFish_Elo": game.stockfish_engine.get_parameters()["UCI_Elo"],
+            "StockFish_Elo": user_elo,
         }
 
     except RedisServiceError as e:
@@ -70,10 +69,11 @@ def start_new_game(
 
 
 @chess_router.post("/play_move/")
-def play_user_move(
+async def play_user_move(
     move_input: MoveInput,
     request: Request,
     game_id: str,
+    engine_manager: EngineManager = Depends(get_engine_manager),
 ):
     """Handles user move and gets Stockfish's response."""
 
@@ -89,17 +89,17 @@ def play_user_move(
 
         log_success(f"Game data from reds for id {game_id}: {game_data} ")
         # reconstruct game instance using the game_data
-        game = ChessGame.from_dict(game_data)
+        game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
         log_success(f"Game after recreation:{game}")
         # make move
         game.make_user_move(move_input.move)
 
-        if game.is_game_over():
-            return {"message": "Game over!", "result": game.board.result()}
-
-        stockfish_move, stockfish_move_san, is_game_over = game.get_engine_move()
+        stockfish_move, stockfish_move_san, is_game_over = await game.get_engine_move()
 
         if not stockfish_move or not stockfish_move_san:
+            # Game over after user move
+            game.quit_game(engine_manager=engine_manager)
+            redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
             return {
                 "message": "Game Over after user Move",
                 "user_move": move_input.move,
@@ -113,6 +113,8 @@ def play_user_move(
 
         if is_game_over:
             # Game over after engine move
+            game.quit_game(engine_manager=engine_manager)
+            redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
             return {
                 "message": "Game Over after Engine Move",
                 "user_move": move_input.move,
@@ -144,10 +146,17 @@ def play_user_move(
         raise HTTPException(status_code=500, detail=str(e))
     except ValueError as v:
         raise HTTPException(status_code=400, detail=f"Invalid or illegal move {v}")
+    except Exception as e:
+        log_error(f"Failed to play move: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to play move: {e}")
 
 
 @chess_router.post("/end_game/")
-def end_game(request: Request, game_id: str):
+def end_game(
+    request: Request,
+    game_id: str,
+    engine_manager: EngineManager = Depends(get_engine_manager),
+):
     """Ends the game and stops the engine."""
 
     try:
@@ -164,10 +173,10 @@ def end_game(request: Request, game_id: str):
             f"Game data from redis before playing user_move for id {game_id}: {game_data} "
         )
         # reconstruct game instance using the game_data
-        game = ChessGame.from_dict(game_data)
+        game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
         log_success(f"Game after recreation:{game}")
 
-        game.quit_engine()
+        game.quit_game(engine_manager=engine_manager)
 
         # delete game from redis
         message = redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
@@ -180,7 +189,11 @@ def end_game(request: Request, game_id: str):
 
 
 @chess_router.post("/undo_move/")
-def undo_move(request: Request, game_id: str):
+def undo_move(
+    request: Request,
+    game_id: str,
+    engine_manager: EngineManager = Depends(get_engine_manager),
+):
     """Undo the last move."""
     try:
         redis_client = request.app.state.redis_client
@@ -194,7 +207,7 @@ def undo_move(request: Request, game_id: str):
 
         log_success(f"Game data from reds for id {game_id}: {game_data} ")
         # reconstruct game instance using the game_data
-        game = ChessGame.from_dict(game_data)
+        game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
         log_success(f"Game after recreation:{game}")
 
         fen_after_undo = game.undo_move()
@@ -219,8 +232,42 @@ def undo_move(request: Request, game_id: str):
         raise HTTPException(status_code=500, detail=str(c))
 
 
+@chess_router.get("/get_top_moves")
+async def get_top_moves(
+    game_id: str,
+    request: Request,
+    engine_manager: EngineManager = Depends(get_engine_manager),
+):
+    """Gets Maximum of 3 top moves at the position"""
+    try:
+        redis_client = request.app.state.redis_client
+        if not redis_client:
+            log_error("Redis Connection Failed")
+            raise HTTPException(status_code=500, detail="Redis Connection Failed")
+
+        game_data = redis_get_game_data_by_id(
+            game_id=game_id, redis_client=redis_client
+        )
+
+        log_success(f"Game data from reds for id {game_id}: {game_data} ")
+        # reconstruct game instance using the game_data
+        game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
+        log_success(f"Game after recreation:{game}")
+
+        top_moves: List = await game.get_top_stockfish_moves()
+
+        return {game_id: game_id, "top_moves": top_moves, "fen": game.get_fen()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching top moves:{e}")
+
+
 @chess_router.post("/voice_to_move_san/")
-def voice_to_move_san(user_input: str, request: Request, game_id: str):
+def voice_to_move_san(
+    user_input: str,
+    request: Request,
+    game_id: str,
+    engine_manager: EngineManager = Depends(get_engine_manager),
+):
     """Converts voice input to move in SAN format using LLM and current fen position."""
     try:
         redis_client = request.app.state.redis_client
@@ -234,7 +281,7 @@ def voice_to_move_san(user_input: str, request: Request, game_id: str):
 
         log_success(f"Game data from reds for id {game_id}: {game_data} ")
         # reconstruct game instance using the game_data
-        game = ChessGame.from_dict(game_data)
+        game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
         log_success(f"Game after recreation:{game}")
 
         # Get current FEN
