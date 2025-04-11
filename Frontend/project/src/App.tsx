@@ -22,7 +22,9 @@ function App() {
   const [isGameOver, setIsGameOver] = useState(false);
   const [alertGameNotStarted, setAlertGameNotStarted] = useState(false);
   const [errorStartingGame, setErrorStartingGame] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const gameIdRef = useRef("");
+  const [difyVoiceMove, setDifyVoiceMove] = useState("");
   // const [moveHistory, setMoveHistory] = useState<string[]>([]);
 
   const { mutate: playUserMove, isPending } = usePlayMoveMutation();
@@ -174,6 +176,23 @@ function App() {
     setAlertGameNotStarted(false);
   }, [gameStarted]);
 
+  //Use effect to make Dify voice move on board
+
+  useEffect(() => {
+    if (!difyVoiceMove) return;
+    console.log(game.moves());
+    console.log("Dify Voice move in useEffect:", difyVoiceMove);
+
+    // Check if difyVoiceMove is a valid move
+    if (!game.moves().includes(difyVoiceMove)) {
+      console.error("Invalid move:", difyVoiceMove);
+      setErrorMessage("Illegal move. Please try again."); // Set error message
+      return;
+    }
+
+    setErrorMessage(null); // Clear any previous error
+    makeAMove(difyVoiceMove);
+  }, [difyVoiceMove]);
   // ---------------------------------- UI Data--------------------------------------
 
   return (
@@ -311,6 +330,10 @@ function App() {
                         setGame={setGame}
                         errorStartingGame={errorStartingGame}
                         setErrorStartingGame={setErrorStartingGame}
+                        setDifyVoiceMove={setDifyVoiceMove}
+                        difyVoiceMove={difyVoiceMove}
+                        errorMessage={errorMessage}
+                        setErrorMessage={setErrorMessage}
                       />
                       <AnimatePresence>
                         {alertGameNotStarted && (

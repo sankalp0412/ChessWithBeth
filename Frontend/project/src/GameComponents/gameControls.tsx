@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,8 +7,13 @@ import {
   useStartGameMutation,
   useEndGameMutation,
   useUndoMoveMutation,
+  useVoiceToSanMutation,
 } from "@/services/hooks";
 import { Chess } from "chess.js";
+import { useVoiceRecognition } from "@/hooks/useVoiceRecognition";
+import { useState } from "react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; // Import shadcn Alert
+
 // Define the props interface
 interface GameControlsProps {
   setGameStarted: React.Dispatch<React.SetStateAction<boolean>>;
@@ -21,6 +25,10 @@ interface GameControlsProps {
   setGame: React.Dispatch<React.SetStateAction<Chess>>;
   errorStartingGame: boolean;
   setErrorStartingGame: React.Dispatch<React.SetStateAction<boolean>>;
+  difyVoiceMove: string;
+  setDifyVoiceMove: React.Dispatch<React.SetStateAction<string>>;
+  errorMessage: string;
+  setErrorMessage: React.Dispatch<React.SetStateAction<string>>;
 }
 
 function GameControls({
@@ -31,14 +39,60 @@ function GameControls({
   gameIdRef,
   game,
   setGame,
-  errorStartingGame,
   setErrorStartingGame,
+  errorMessage, // Use errorMessage from props
+  setErrorMessage,
+  setDifyVoiceMove,
 }: GameControlsProps) {
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
-
   const { mutate: startGame } = useStartGameMutation();
   const { mutate: endGame } = useEndGameMutation();
   const { mutate: undoMove } = useUndoMoveMutation();
+  const { mutate: voiceToSan, isPending } = useVoiceToSanMutation();
+
+  const [currentTranscript, setCurrentTranscript] = useState<string | null>(
+    null
+  ); // To store the transcript
+  const [isMoveProcessing, setIsMoveProcessing] = useState(false);
+
+  // ------------ Voice ------------------------
+
+  const { isVoiceEnabled, toggleVoice, interimTranscript, isProcessing } =
+    useVoiceRecognition((command) => {
+      console.log("Voice command received:", command);
+      setCurrentTranscript(command); // Set the transcript in the alert
+      setIsMoveProcessing(true); // Show loading state
+
+      voiceToSan(
+        { voiceText: command, game_id: gameIdRef.current },
+        {
+          onSuccess: (response) => {
+            const dify_response = response.message;
+            if (dify_response === "UNDO") {
+              handleTakeback();
+            } else if (dify_response === "RESET") {
+              handleQuitGame();
+            } else if (dify_response === "ILLEGAL") {
+              console.log("Illegal Move :", dify_response);
+              setErrorMessage("Illegal move. Please try again.");
+            } else {
+              console.log("Move to play :", dify_response);
+              setErrorMessage(null); // Clear any previous error
+              setDifyVoiceMove("");
+              setDifyVoiceMove(dify_response);
+            }
+            setIsMoveProcessing(false); // Hide loading state
+            setCurrentTranscript(null); // Clear the transcript after processing
+          },
+          onError: (error) => {
+            console.error(`Error while Getting response from dify : ${error}`);
+            setIsMoveProcessing(false); // Hide loading state
+            setCurrentTranscript(null); // Clear the transcript
+          },
+        }
+      );
+    });
+
+  // ---------------------------------- Game Actions -----------------------------------
 
   const handleStartGame = () => {
     const audio = new Audio("sounds/game-start.mp3");
@@ -116,9 +170,6 @@ function GameControls({
       },
     });
   };
-  const handleVoiceCommands = () => {
-    setIsVoiceEnabled((prev) => !prev);
-  };
 
   return (
     <motion.div className="space-y-4">
@@ -177,7 +228,7 @@ function GameControls({
                   : "bg-gray-500 hover:bg-gray-600"
               } text-white font-medium flex items-center justify-center gap-2 transition-colors`}
               variant="secondary"
-              onClick={handleVoiceCommands}
+              onClick={toggleVoice}
               disabled={isGameOver}
             >
               {isVoiceEnabled ? (
@@ -202,6 +253,51 @@ function GameControls({
                 <ChatWidget />
               </div>
             )}
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">
+                Voice Command
+              </h2>
+              <div className="space-y-3">
+                {interimTranscript && !currentTranscript && !errorMessage && (
+                  <Alert variant="default">
+                    <AlertTitle>Listening...</AlertTitle>
+                    <AlertDescription>
+                      <span className="text-gray-600">{interimTranscript}</span>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {currentTranscript && !errorMessage && (
+                  <Alert variant="default">
+                    <AlertTitle>Processing Command</AlertTitle>
+                    <AlertDescription>
+                      {isMoveProcessing || isProcessing ? (
+                        <div className="flex items-center gap-2">
+                          <div className="loader border-t-2 border-blue-500 rounded-full w-6 h-6 animate-spin"></div>
+                          <span className="text-gray-600">
+                            {currentTranscript}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-600">
+                          {currentTranscript}
+                        </span>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {errorMessage && (
+                  <Alert variant="destructive">
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>
+                      <span className="text-red-600">{errorMessage}</span>
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {!interimTranscript && !currentTranscript && !errorMessage && (
+                  <p className="text-gray-600">Speak a command to start!</p>
+                )}
+              </div>
+            </div>
           </motion.div>
         )}
         {/* </ResizablePanelGroup> */}
