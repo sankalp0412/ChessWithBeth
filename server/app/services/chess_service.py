@@ -150,6 +150,7 @@ class ChessGame:
         try:
             if self.is_game_over():
                 return []
+            log_debug(f"Legal  Moves in the positin : {list(self.board.legal_moves)}")
             n = min(3, len(list(self.board.legal_moves)))
             with self.engine.analysis(
                 board=self.board,

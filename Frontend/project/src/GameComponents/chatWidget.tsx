@@ -1,34 +1,44 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MessageCircle, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function ChatWidget() {
+import { useAiAnalysisMutation } from "@/services/hooks";
+interface ChatWidgetProps {
+  gameIdRef: React.MutableRefObject<string>;
+}
+
+const ChatWidget: React.FC<ChatWidgetProps> = ({ gameIdRef }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const { mutate: aiAnalysis, isPending } = useAiAnalysisMutation();
 
   const handleTalkToBeth = async () => {
-    setLoading(true);
-    try {
-      // Simulate sending request to your Dify LLM API
-      const response = await fetch("YOUR_DIFY_API_ENDPOINT", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "talk_to_beth" }),
-      });
-
-      const data = await response.json();
-      setMessages([...messages, "You: Talk to Beth", `Beth: ${data.reply}`]);
-    } catch (error) {
-      setMessages([
-        ...messages,
-        "Beth is unavailable right now. Try again later.",
-      ]);
-    }
-    setLoading(false);
+    setMessage("");
+    aiAnalysis(
+      { game_id: gameIdRef.current },
+      {
+        onSuccess: (data) => {
+          console.log(data);
+          setMessage(data.analysis);
+        },
+        onError: (error) => {
+          console.error(`Error while fetching analysis : ${error}`);
+        },
+      }
+    );
+    // setTimeout(() => {}, 2000);
+    // setMessage(
+    //   "Alright, let's have a look at this position. Hmm... Now this is an interesting position. White has some dynamic possibilities here.\n\nNotice the pawn structure in the center. Could an exchange there open up lines for your pieces, potentially creating pressure on Black's king? Maybe a pawn sac is in order.\n\nThink about how a pawn advance might disrupt Black's pawn structure and create attacking opportunities. Just a thought!\n"
+    // );
   };
+
+  useEffect(() => {
+    if (isOpen) {
+      setMessage("");
+    }
+  }, [isOpen]);
 
   return (
     <div className="relative h-full w-full">
@@ -61,24 +71,25 @@ export default function ChatWidget() {
                 />
               </div>
               <CardContent className="h-48 overflow-y-auto border-t mt-2 p-2">
-                {messages.length === 0 ? (
-                  <p className="text-gray-500 text-sm">
-                    Click the button below to talk to Beth.
-                  </p>
+                {isPending ? (
+                  <div className="loader border-t-2 border-blue-500 rounded-full w-6 h-6 animate-spin"></div>
                 ) : (
-                  messages.map((msg, index) => (
-                    <div
-                      key={index}
-                      className="text-sm bg-gray-200 p-2 rounded-lg mb-1"
-                    >
-                      {msg}
-                    </div>
-                  ))
+                  <motion.p
+                    className="text-gray-500"
+                    style={{ whiteSpace: "pre-wrap" }}
+                    initial={{ width: 0 }}
+                    animate={{ width: "100%" }}
+                    transition={{ duration: 1, ease: "easeInOut" }}
+                  >
+                    {message.length > 0
+                      ? message
+                      : "Click the Button Below to talk to beth."}
+                  </motion.p>
                 )}
               </CardContent>
               <div className="flex justify-center mt-2">
-                <Button onClick={handleTalkToBeth} disabled={loading}>
-                  {loading ? "Talking..." : "Talk to Beth"}
+                <Button onClick={handleTalkToBeth} disabled={isPending}>
+                  {isPending ? "Fetching analysis..." : "Talk to Beth"}
                 </Button>
               </div>
             </Card>
@@ -87,4 +98,6 @@ export default function ChatWidget() {
       </AnimatePresence>
     </div>
   );
-}
+};
+
+export default ChatWidget;
