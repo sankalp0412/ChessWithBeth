@@ -3,6 +3,7 @@ import { MessageCircle, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
+import { BotMessageSquare } from "lucide-react";
 
 import { useAiAnalysisMutation } from "@/services/hooks";
 interface ChatWidgetProps {
@@ -74,22 +75,25 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ gameIdRef }) => {
                 {isPending ? (
                   <div className="loader border-t-2 border-blue-500 rounded-full w-6 h-6 animate-spin"></div>
                 ) : (
-                  <motion.p
-                    className="text-gray-500"
-                    style={{ whiteSpace: "pre-wrap" }}
-                    initial={{ width: 0 }}
-                    animate={{ width: "100%" }}
-                    transition={{ duration: 1, ease: "easeInOut" }}
-                  >
-                    {message.length > 0
-                      ? message
-                      : "Click the Button Below to talk to beth."}
-                  </motion.p>
+                  <div className="flex">
+                    <BotMessageSquare className="mr-2" />
+                    <motion.p
+                      className="text-gray-500"
+                      style={{ whiteSpace: "pre-wrap" }}
+                      initial={{ width: 0 }}
+                      animate={{ width: "100%" }}
+                      transition={{ duration: 1, ease: "easeInOut" }}
+                    >
+                      {message.length > 0
+                        ? message
+                        : "Hi, I’m GM Beth! let’s sharpen your chess skills!"}
+                    </motion.p>
+                  </div>
                 )}
               </CardContent>
               <div className="flex justify-center mt-2">
                 <Button onClick={handleTalkToBeth} disabled={isPending}>
-                  {isPending ? "Fetching analysis..." : "Talk to Beth"}
+                  {isPending ? "Fetching analysis..." : "What should I do?"}
                 </Button>
               </div>
             </Card>
