@@ -1,290 +1,41 @@
-import React, { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Chessboard } from "react-chessboard";
-import { Chess, Square } from "chess.js";
+import { Chess, Square, Move } from "chess.js";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Trophy, Clock, Terminal } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import GameControls from "./GameComponents/gameControls";
 import {
-  Mic,
-  MicOff,
-  PlayCircle,
-  XCircle,
-  RotateCcw,
-  Clock,
-  Trophy,
-  Undo,
-  Frown,
-} from "lucide-react";
-import {
-  startGame,
-  playUserMove,
-  endGame,
-  undoMove,
-  voiceToSan,
-} from "./services/chessServices";
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { usePlayMoveMutation } from "./services/hooks";
 
 function App() {
-  // The Chess instance (do not recreate from FEN because that would lose history)
+  const [showChessboard, setShowChessboard] = useState(false);
   const [game, setGame] = useState(new Chess());
-  // Store moves in SAN format (e.g. "e4", "Nf3", etc.)
-  const [moveHistory, setMoveHistory] = useState<string[]>([]);
-  const [isVoiceEnabled, setIsVoiceEnabled] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [squareStyles, setSquareStyles] = useState({});
-  const [transcript, setTranscript] = useState("");
-  const [wasVoiceCaptured, setVoiceCaptured] = useState(true);
-  const [wasValidMove, setValidMove] = useState(true);
-  const [IsGameOver, setIsGameOver] = useState(false);
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [alertGameNotStarted, setAlertGameNotStarted] = useState(false);
+  const [errorStartingGame, setErrorStartingGame] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const gameIdRef = useRef("");
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const [difyVoiceMove, setDifyVoiceMove] = useState("");
+  // const [moveHistory, setMoveHistory] = useState<string[]>([]);
 
-  // useEffect(() => {
-  //   if (!wasValidMove) {
-  //     console.log("Invalid move detected!");
-  //   }
-  // }, [wasValidMove]);
-  /**
-   * Rebuild the board by replaying all moves in the provided history.
-   */
+  const { mutate: playUserMove, isPending } = usePlayMoveMutation();
 
-  const initializeRecognition = () => {
-    if (!window.webkitSpeechRecognition) {
-      console.log("Speech Recognition is not supported in your browser.");
-      return;
-    }
-
-    const recognition = new window.webkitSpeechRecognition();
-    recognitionRef.current = recognition;
-
-    recognition.interimResults = true;
-    recognition.lang = "en-US";
-    recognition.continuous = true;
-
-    // Add chess grammar
-    if ("webkitSpeechGrammarList" in window) {
-      const grammar = `
-        #JSGF V1.0; grammar chess; public <chess> =
-        a | b | c | d | e | f | g | h | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 
-        knight | rook | bishop | queen | king | pawn | castle | kingside | queenside |
-        the | on | capture | check | checkmate |takes| draw | resign | undo | restart | quit;
-      `;
-      const speechRecognitionList = new window.webkitSpeechGrammarList();
-      speechRecognitionList.addFromString(grammar, 1);
-      recognition.grammars = speechRecognitionList;
-    }
-
-    recognition.onresult = (event) => {
-      let text = "";
-      for (let i = 0; i < event.results.length; i++) {
-        text += event.results[i][0].transcript;
-      }
-      setTranscript(text);
-    };
-
-    recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-    };
-
-    recognition.onend = () => {
-      setIsVoiceEnabled(false);
-    };
-
-    recognition.start();
-    setIsVoiceEnabled(true);
+  const resetSquareStyles = () => {
+    setSquareStyles({});
   };
 
-  const updateGameFromHistory = (history: string[]) => {
-    const newGame = new Chess();
-    history.forEach((san) => {
-      newGame.move(san);
-    });
-    setGame(newGame);
-  };
-
-  /**
-   * When Stockfish makes a move, update the moveHistory with the Stockfish SAN,
-   * then rebuild the board from the updated history.
-   */
-  const makeStockfishMove = (stockfish_san: string) => {
-    setMoveHistory((prevHistory) => {
-      const newHistory = [...prevHistory, stockfish_san];
-      updateGameFromHistory(newHistory);
-      return newHistory;
-    });
-  };
-
-  /**
-   * Process the user move:
-   * - Update the game with the move.
-   * - Append the move's SAN to moveHistory.
-   * - Call the backend API (playUserMove) which returns Stockfish’s move in SAN.
-   * - Update moveHistory with Stockfish’s move.
-   */
-
-  function setMovetoInvalid() {
-    setValidMove((prevMoveState) => {
-      const newMoveState = !prevMoveState;
-      return newMoveState;
-    });
-    // console.log(wasValidMove)
-    setTimeout(() => {
-      setValidMove((prevMoveState) => {
-        const newMoveState = !prevMoveState;
-        return newMoveState;
-      });
-    }, 2000);
-  }
-  async function makeAMove(
-    move: string | { from: string; to: string; promotion?: string }
-  ) {
-    try {
-      // Make the user move on the current game.
-      const result = game.move(move);
-      if (!result) return null;
-
-      // Update the move history with the user move.
-      setMoveHistory((prev) => {
-        const newHistory = [...prev, result.san];
-        updateGameFromHistory(newHistory);
-        return newHistory;
-      });
-
-      // Call the backend to process the user's move.
-      // We send the user move's SAN (or you could send other info as needed).
-      const response = await playUserMove(result.san, gameIdRef.current);
-      console.log("API Response:", response);
-      if (response.is_game_over) {
-        setIsGameOver(true);
-      }
-      // Extract Stockfish's move in SAN from the response.
-
-      const stockfish_san = response.stockfish_san;
-      if (stockfish_san) {
-        makeStockfishMove(stockfish_san);
-      }
-      setVoiceCaptured(true);
-      return result;
-    } catch (error) {
-      console.error(error);
-      setMovetoInvalid();
-      return null;
-    }
-  }
-
-  /**
-   * Called when a piece is dropped on the board.
-   */
-  function onDrop(sourceSquare: string, targetSquare: string) {
-    if (!gameStarted) return false;
-    const move = makeAMove({
-      from: sourceSquare,
-      to: targetSquare,
-      promotion: "q",
-    });
-    resetSquareStyles(); // Reset square styles after move if color changed
-    return move !== null;
-  }
-
-  async function resetGame() {
-    setGame(new Chess());
-    const response = await endGame(gameIdRef.current);
-    console.log(response);
-    setGameStarted(false);
-    gameIdRef.current = "";
-    const userEloRatingElement = document.getElementById(
-      "userEloRating"
-    ) as HTMLInputElement;
-    if (userEloRatingElement) userEloRatingElement.value = "";
-    setMoveHistory([]);
-  }
-
-  const startNewGame = async () => {
-    setGameStarted(true);
-    setIsGameOver(false);
-    const userEloRatingElement = document.getElementById(
-      "userEloRating"
-    ) as HTMLInputElement;
-    let userEloRating = 1200;
-    if (userEloRatingElement && userEloRatingElement.value.length) {
-      userEloRating = parseInt(userEloRatingElement.value);
-    }
-    try {
-      const response = await startGame(userEloRating);
-      console.log(response);
-      if (response && response.game_id) {
-        gameIdRef.current = response.game_id;
-        console.log("Game started with ID:", gameIdRef.current);
-      } else {
-        console.error("No game ID received from server");
-      }
-    } catch (error) {
-      console.error("Error starting game:", error);
-      setGameStarted(false);
-    }
-  };
-
-  /**
-   * Undo the last move by removing it from moveHistory and rebuilding the board.
-   */
-  async function undoPrevMove() {
-    if (moveHistory.length === 0) return; // No moves to undo
-
-    // Create a new history by removing the last move
-    const newHistory = moveHistory.slice(0, -2);
-    updateGameFromHistory(newHistory);
-    console.log("History after undo:", newHistory);
-
-    // Make API call to undo the move in backend
-    try {
-      const response = await undoMove(gameIdRef.current);
-      console.log("Response after undo:", response);
-    } catch (error) {
-      console.error("Error undoing move:", error);
-    }
-
-    // Update move history state
-    setMoveHistory(newHistory);
-  }
-
-  const quitGame = () => {
-    if (window.confirm("Are you sure you want to quit the game?")) {
-      resetGame();
-    }
-  };
-
-  const toggleVoice = () => {
-    setTranscript("");
-    setVoiceCaptured(true);
-    if (!recognitionRef.current) {
-      initializeRecognition();
-    } else {
-      if (isVoiceEnabled) {
-        try {
-          recognitionRef.current.stop();
-          setIsVoiceEnabled(false);
-          recognitionRef.current = null;
-          console.log("Voice recognition stopped");
-          console.log("Transcript:", transcript);
-          //now we make api request convert it to a san move only if transcript is not empty
-          if (transcript) {
-            const response = voiceToSan(transcript, gameIdRef.current);
-            response.then((res) => {
-              console.log(res);
-              if (res.message === "UNDO") {
-                undoPrevMove();
-              } else if (res.message === "RESET") {
-                resetGame();
-              } else makeAMove(res.message);
-            });
-            setTranscript("");
-          }
-          if (!transcript) {
-            setVoiceCaptured(false);
-          }
-        } catch (error) {
-          console.error("Error in voice recognition:", error);
-        }
-      } else {
-        initializeRecognition();
-      }
-    }
+  const getMergedSquareStyles = () => {
+    const checkStyles = getCustomSquareStyleInCheck();
+    return { ...checkStyles, ...squareStyles };
   };
 
   const getCustomSquareStyleInCheck = () => {
@@ -319,165 +70,321 @@ function App() {
       : {};
   };
 
-  const customSquareStyleOnRightClick = (square: Square) => {
-    const style = {
-      [square]: {
-        backgroundColor: "rgba(233, 18, 18, 0.4)", // Semi-transparent green
-      },
-    };
-    setSquareStyles(style);
+  const playSound = (game: Chess, result: Move) => {
+    if (game.isCheckmate()) {
+      const audio1 = new Audio("sounds/move-check.mp3");
+      const audio2 = new Audio("sounds/game-end.mp3");
+      audio1.play();
+      audio2.play();
+    } else if (game.isCheck()) {
+      const audio = new Audio("sounds/move-check.mp3");
+      audio.play();
+    } else if (result.flags == "c") {
+      const audio = new Audio("/sounds/capture.mp3");
+      audio.play().catch((e) => {
+        console.warn("Autoplay blocked:", e);
+      });
+    } else if (result.flags == "k" || result.flags == "q") {
+      const audio = new Audio("/sounds/castle.mp3");
+      audio.play().catch((e) => {
+        console.warn("Autoplay blocked:", e);
+      });
+    } else {
+      const audio = new Audio("/sounds/move-self.mp3");
+      audio.play().catch((e) => {
+        console.warn("Autoplay blocked:", e);
+      });
+    }
+  };
+  // -------------------------------------------- Game Actions --------------------------------
+  function onDrop(sourceSquare: string, targetSquare: string) {
+    if (!gameStarted) {
+      setAlertGameNotStarted(true);
+      return false;
+    } //trigger alert
+    setAlertGameNotStarted(false);
+    const move = makeAMove({
+      from: sourceSquare,
+      to: targetSquare,
+      promotion: "q",
+    });
+    resetSquareStyles(); // Reset square styles after move if color changed
+    return move !== null;
+  }
+  const makeAMove = (
+    move: string | { from: string; to: string; promotion?: string }
+  ) => {
+    const result = game.move(move);
+    if (!result) return null;
+
+    playSound(game, result);
+
+    const updatedGame = game;
+    setGame(updatedGame);
+
+    if (game.isGameOver()) {
+      setIsGameOver(true);
+    }
+    playUserMove(
+      { userMove: result.san, game_id: gameIdRef.current },
+      {
+        onSuccess: (data) => {
+          console.log(`Played Move: ${data}`);
+          if (data.is_game_over) {
+            setIsGameOver(true);
+          }
+          playStockFishMove(data.stockfish_san);
+        },
+        onError: (error) => {
+          console.error(`Error while playing move: ${error}`);
+        },
+      }
+    );
   };
 
-  const resetSquareStyles = () => {
-    setSquareStyles({});
+  const playStockFishMove = (stockfish_san: string) => {
+    const result = game.move(stockfish_san);
+    if (!result) return null;
+
+    playSound(game, result);
+
+    const updatedGame = game;
+    setGame(updatedGame);
+
+    if (game.isGameOver()) {
+      setIsGameOver(true);
+    }
   };
 
-  const getMergedSquareStyles = () => {
-    const checkStyles = getCustomSquareStyleInCheck();
-    return { ...checkStyles, ...squareStyles };
-  };
+  // ----------- UseEffects ---------------------------------------
+  useEffect(() => {
+    //Handle reset if Quit game was inititaed
+    if (gameStarted) return;
+    setGame(new Chess());
+
+    // TODO: ADD API call to end game and game id update
+
+    const userEloRatingElement = document.getElementById(
+      "userEloRating"
+    ) as HTMLInputElement;
+    if (userEloRatingElement) userEloRatingElement.value = "";
+    // setMoveHistory([]);
+  }, [gameStarted]);
+
+  useEffect(() => {
+    if (!gameStarted) return;
+    setAlertGameNotStarted(false);
+  }, [gameStarted]);
+
+  //Use effect to make Dify voice move on board
+
+  useEffect(() => {
+    if (!difyVoiceMove) return;
+    console.log(game.moves());
+    console.log("Dify Voice move in useEffect:", difyVoiceMove);
+
+    // Check if difyVoiceMove is a valid move
+    if (!game.moves().includes(difyVoiceMove)) {
+      console.error("Invalid move:", difyVoiceMove);
+      setErrorMessage("Illegal move. Please try again."); // Set error message
+      return;
+    }
+
+    setErrorMessage(null); // Clear any previous error
+    makeAMove(difyVoiceMove);
+  }, [difyVoiceMove]);
+  // ---------------------------------- UI Data--------------------------------------
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="max-w-6xl mx-auto flex gap-8">
-        {/* Chess Board Section */}
-        <div className="flex-1 bg-white rounded-lg shadow-lg p-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-6">
-            Chess with Beth
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-6">
+      <motion.div
+        initial={{ opacity: 0, y: -50 }}
+        animate={{ opacity: 1, y: 0 }}
+        layout="position"
+        transition={{
+          duration: 1,
+          ease: "easeOut",
+          layout: {
+            duration: 0.8,
+            type: "tween",
+          },
+        }}
+        className={`mb-8
+          ${
+            gameStarted
+              ? "flex flex-row justify-between w-[1250px]"
+              : "text-center"
+          } 
+          `}
+      >
+        <div>
+          <h1 className="text-6xl font-bold text-white mb-4 tracking-tight">
+            Chess with{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+              BETH
+            </span>
           </h1>
-          <div className="aspect-square max-w-2xl mx-auto">
-            <Chessboard
-              position={game.fen()}
-              onPieceDrop={onDrop}
-              boardWidth={560}
-              customBoardStyle={{
-                borderRadius: "4px",
-                boxShadow: "0 2px 10px rgba(0, 0, 0, 0.5)",
-              }}
-              customSquareStyles={getMergedSquareStyles()}
-              onSquareRightClick={(square: Square) =>
-                customSquareStyleOnRightClick(square)
-              }
-              onSquareClick={() => resetSquareStyles()}
-            />
-          </div>
+          <p className="text-gray-400 text-lg mb-8">
+            Your AI-powered chess companion with voice controls
+          </p>
+
+          {!showChessboard && (
+            <Button
+              onClick={() => setShowChessboard(true)}
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-6 rounded-lg text-lg font-semibold transition-all duration-200 hover:scale-105"
+            >
+              Start Playing
+            </Button>
+          )}
         </div>
-
-        {/* Game Controls Section */}
-        <div className="w-80 space-y-6">
-          {/* Game Status Card */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <Trophy className="text-yellow-500" />
-              Game Status
-            </h2>
-            <div className="space-y-2">
-              <p className="text-lg font-medium text-gray-700 flex items-center gap-2">
-                <Clock className="text-blue-500" />
-                {game.isGameOver()
-                  ? "Game Over!"
-                  : `${game.turn() === "w" ? "White" : "Black"}'s turn`}
-              </p>
-              {game.isCheckmate() && (
-                <p className="text-xl font-bold text-red-600">
-                  Checkmate! {game.turn() === "w" ? "Black" : "White"} wins!
-                </p>
-              )}
-              {game.isDraw() && (
-                <p className="text-xl font-bold text-blue-600">Draw!</p>
-              )}
-            </div>
-          </div>
-
-          {/* Game Controls Card */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">
-              Game Controls
-            </h2>
-            <div className="space-y-3">
-              <div className="flex space-x-4">
-                <button
-                  onClick={gameStarted ? quitGame : startNewGame}
-                  className={`${
-                    gameStarted
-                      ? `py-3 rounded-lg bg-red-500 hover:bg-red-600 ${
-                          moveHistory.length > 0 ? "w-1/2" : "w-full"
-                        }`
-                      : "w-full py-3 rounded-lg bg-green-500 hover:bg-green-600"
-                  } text-white font-medium flex items-center justify-center gap-2 transition-colors`}
-                >
-                  {gameStarted ? (
-                    <>
-                      <XCircle size={20} /> Quit Game
-                    </>
-                  ) : (
-                    <>
-                      <PlayCircle size={20} /> Start Game
-                    </>
-                  )}
-                </button>
-                {gameStarted && moveHistory.length > 0 && (
-                  <button
-                    onClick={undoPrevMove}
-                    disabled={IsGameOver}
-                    className={` ${
-                      IsGameOver
-                        ? "w-1/2 py-3 rounded-lg bg-gray-500 text-white font-medium flex items-center justify-center gap-2 transition-colors"
-                        : "w-1/2 py-3 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-medium flex items-center justify-center gap-2 transition-colors"
-                    }`}
-                  >
-                    <Undo size={20} /> Takeback
-                  </button>
-                )}
-              </div>
-              <input
-                id="userEloRating"
-                type="text"
-                className="w-full py-3 px-4 rounded-lg bg-gray-100 text-gray-800 font-medium"
-                placeholder="Enter your ELO rating (default: 1200)"
-              />
-              <button
-                onClick={resetGame}
-                className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium flex items-center justify-center gap-2 transition-colors"
-              >
-                <RotateCcw size={20} /> Reset Game
-              </button>
-              <button
-                onClick={gameStarted ? toggleVoice : undefined}
-                className={`w-full py-3 rounded-lg ${
-                  isVoiceEnabled
-                    ? "bg-green-500 hover:bg-green-600"
-                    : "bg-gray-500 hover:bg-gray-600"
-                } text-white font-medium flex items-center justify-center gap-2 transition-colors`}
-              >
-                {isVoiceEnabled ? (
-                  <>
-                    <Mic size={20} /> Voice Enabled
-                  </>
-                ) : (
-                  <>
-                    <MicOff size={20} /> Voice Disabled
-                  </>
-                )}
-              </button>
-              <div className="incorrect-input">
-                {(!wasVoiceCaptured || !wasValidMove) && (
-                  <div>
-                    <Frown size={30} />
-                    {!wasValidMove ? (
-                      <span>Sorry, Invalid Move. Please try again.</span>
-                    ) : (
-                      <span>Sorry, couldn't understand. Please try again.</span>
-                    )}
+        <AnimatePresence>
+          {gameStarted && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 0.8, y: 0 }}
+              transition={{ duration: 0.8, ease: "easeIn", layout: true }}
+              className="flex flex-col"
+            >
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-2">
+                  <Trophy className="text-yellow-500" />
+                  <div className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+                    Game Status
                   </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Clock className="text-blue-500" />
+                  <p className="text-lg font-medium text-gray-300">
+                    {game.isGameOver()
+                      ? "Game Over!"
+                      : `${game.turn() === "w" ? "White" : "Black"}'s turn`}
+                  </p>
+                </div>
+
+                {game.isCheckmate() && (
+                  <p className="text-xl font-bold text-red-600">
+                    Checkmate! {game.turn() === "w" ? "Black" : "White"} wins!
+                  </p>
+                )}
+
+                {game.isDraw() && (
+                  <p className="text-xl font-bold text-blue-600">Draw!</p>
                 )}
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+
+      <AnimatePresence>
+        {showChessboard && (
+          <motion.div
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            transition={{ duration: 0.5 }}
+            className="w-full max-w-7xl"
+          >
+            <ResizablePanelGroup
+              direction="horizontal"
+              className="min-h-[600px] rounded-lg border border-gray-700"
+            >
+              <ResizablePanel defaultSize={50} minSize={50}>
+                <Card className="relative h-full bg-gray-800/50 ">
+                  <div className="flex items-center justify-center h-full p-6 border-gray-700">
+                    <Chessboard
+                      position={game.fen()}
+                      boardWidth={600}
+                      onPieceDrop={onDrop}
+                      customSquareStyles={getMergedSquareStyles()}
+                      customBoardStyle={{
+                        borderRadius: "8px",
+                        boxShadow: "0 8px 16px -4px rgba(0, 0, 0, 0.2)",
+                      }}
+                      customDarkSquareStyle={{ backgroundColor: "#8363aa" }}
+                      customLightSquareStyle={{ backgroundColor: "#EDE7F6" }}
+                      // arePremovesAllowed={true}
+                      onSquareClick={() => resetSquareStyles()}
+                    />
+                  </div>
+                </Card>
+              </ResizablePanel>
+
+              <ResizableHandle withHandle />
+
+              <ResizablePanel defaultSize={50} minSize={28}>
+                <Card className="h-full bg-gray-800/50 backdrop-blur-sm border-gray-700">
+                  <div className="p-6">
+                    <h2 className="text-2xl font-bold  text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 mb-4 ">
+                      Game Controls
+                    </h2>
+                    <div className="mb-4">
+                      <GameControls
+                        setGameStarted={setGameStarted}
+                        gameStarted={gameStarted}
+                        isGameOver={isGameOver}
+                        setIsGameOver={setIsGameOver}
+                        gameIdRef={gameIdRef}
+                        game={game}
+                        setGame={setGame}
+                        errorStartingGame={errorStartingGame}
+                        setErrorStartingGame={setErrorStartingGame}
+                        setDifyVoiceMove={setDifyVoiceMove}
+                        difyVoiceMove={difyVoiceMove}
+                        errorMessage={errorMessage}
+                        setErrorMessage={setErrorMessage}
+                      />
+                      <AnimatePresence>
+                        {alertGameNotStarted && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2 }}
+                            exit={{ opacity: 0, y: 10 }}
+                          >
+                            <Alert className="my-4" variant="destructive">
+                              <Terminal className="h-4 w-4" />
+                              <AlertTitle className="">Heads up!</AlertTitle>
+                              <AlertDescription className="text-bold">
+                                Click New Game to start Playing!
+                              </AlertDescription>
+                            </Alert>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      <AnimatePresence>
+                        {errorStartingGame && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2 }}
+                            exit={{ opacity: 0, y: 10 }}
+                          >
+                            <Alert className="my-4" variant="destructive">
+                              <Terminal className="h-4 w-4" />
+                              <AlertTitle className="">Heads up!</AlertTitle>
+                              <AlertDescription className="text-bold">
+                                Sorry, there was an error while starting game,
+                                please try again later.
+                              </AlertDescription>
+                            </Alert>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      {isPending && (
+                        <motion.div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white absolute bottom-2 right-2"></motion.div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
-
 export default App;
