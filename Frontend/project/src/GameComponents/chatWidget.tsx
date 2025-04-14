@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { BotMessageSquare } from "lucide-react";
 
 import { useAiAnalysisMutation } from "@/services/hooks";
+import { Typewriter } from "react-simple-typewriter";
 interface ChatWidgetProps {
   gameIdRef: React.MutableRefObject<string>;
 }
@@ -73,7 +74,18 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ gameIdRef }) => {
               </div>
               <CardContent className="h-48 overflow-y-auto border-t mt-2 p-2">
                 {isPending ? (
-                  <div className="loader border-t-2 border-blue-500 rounded-full w-6 h-6 animate-spin"></div>
+                  <div className="flex flex-col items-center justify-center text-gray-500 space-y-4 mt-10">
+                    <div className="loader border-t-4 border-blue-500 rounded-full w-10 h-10 animate-spin"></div>
+                    <Typewriter
+                      words={[
+                        "Studying position...",
+                        "Analyzing moves...",
+                        "Evaluating score...",
+                      ]}
+                      loop={false}
+                      typeSpeed={50}
+                    />
+                  </div>
                 ) : (
                   <div className="flex">
                     <BotMessageSquare className="mr-2" />
