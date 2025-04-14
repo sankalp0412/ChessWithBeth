@@ -153,12 +153,12 @@ class ChessGame:
             n = min(3, len(list(self.board.legal_moves)))
             with self.engine.analysis(
                 board=self.board,
-                options={"UCI_Elo": 3000},
+                options={"UCI_Elo": 3000},  # Use full engine strength for analysis
                 limit=chess.engine.Limit(depth=25),
             ) as analysis:
                 top_moves = []
                 seen_moves = set()  # Track unique moves
-                analysis.wait()
+                analysis.wait()  # Let the analysis finish
 
                 for info in analysis:
                     if "pv" in info and len(top_moves) < n:

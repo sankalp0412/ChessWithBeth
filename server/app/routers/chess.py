@@ -6,7 +6,7 @@ from app.services.chess_service import (
     create_and_get_new_chess_game,
     ChessServiceError,
 )
-from app.utils.voice_to_move_llm import voice_to_move, DifyServiceError
+from app.utils.DIFY.voice_to_move_llm import voice_to_move, DifyServiceError
 from app.services.redis.redis_setup import (
     get_redis_client,
 )
@@ -21,6 +21,7 @@ from app.services.engine.engine_manager import EngineManager
 from app.services.engine.dependencies import get_engine_manager
 
 from app.utils.error_handling import log_error, log_success, ChessGameError, log_debug
+from app.utils.DIFY.ai_analysis_llm import run_ai_analysis
 
 chess_router = APIRouter()
 
@@ -230,6 +231,49 @@ def undo_move(
     except ChessServiceError as c:
         log_error(f"Chess service error: {str(c)}")
         raise HTTPException(status_code=500, detail=str(c))
+
+
+@chess_router.get("/get_ai_analysis")
+async def get_ai_analysis(
+    game_id: str,
+    request: Request,
+    engine_manager: EngineManager = Depends(get_engine_manager),
+):
+    """Gets Analysis from DIFY Workflow"""
+
+    try:
+        redis_client = request.app.state.redis_client
+        if not redis_client:
+            log_error("Redis Connection Failed")
+            raise HTTPException(status_code=500, detail="Redis Connection Failed")
+
+        game_data = redis_get_game_data_by_id(
+            game_id=game_id, redis_client=redis_client
+        )
+
+        log_success(f"Game data from reds for id {game_id}: {game_data} ")
+        # reconstruct game instance using the game_data
+        game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
+        log_success(f"Game after recreation:{game}")
+
+        # First get top moves:
+        top_moves: List = await game.get_top_stockfish_moves()
+        fen = game.get_fen()
+        turn = game.board.turn
+
+        analysis = run_ai_analysis(str(top_moves), fen, turn)
+
+        return {
+            "game_id": game_id,
+            "fen": fen,
+            "top_moves": top_moves,
+            "analysis": analysis,
+        }
+    except Exception as e:
+        log_error(f"Error while generating Analysis from dify:{e}")
+        raise HTTPException(
+            status_code=500, detail=f"Error while generating Analysis from dify:{e}"
+        )
 
 
 @chess_router.get("/get_top_moves")
