@@ -103,7 +103,7 @@ function GameControls({
       const inputElo = parseInt(userEloRatingElement.value, 10);
 
       // Validate input ELO
-      if (!isNaN(inputElo) && inputElo >= 1320 && inputElo <= 3000) {
+      if (!isNaN(inputElo) && inputElo >= 1320 && inputElo <= 3190) {
         userEloRating = inputElo;
       } else {
         console.warn("Invalid ELO input. Using default value of 1320.");

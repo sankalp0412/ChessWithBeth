@@ -45,9 +45,9 @@ class EngineManager:
                 f"Engine Error while initializing for Game ID : {game_id} : {ee}"
             )
         except Exception as e:
-            log_error(f" Error while initializing for Game ID : {game_id} : {ee}")
+            log_error(f" Error while initializing for Game ID : {game_id} : {e}")
             raise EngineManagerError(
-                f" Error while initializing for Game ID : {game_id} : {ee}"
+                f" Error while initializing for Game ID : {game_id} : {e}"
             )
 
     def create_engine(self, elo_level: str | int) -> chess.engine.SimpleEngine:
