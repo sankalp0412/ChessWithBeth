@@ -14,7 +14,7 @@ interface ChatWidgetProps {
 const ChatWidget: React.FC<ChatWidgetProps> = ({ gameIdRef }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
-  const { mutate: aiAnalysis, isPending } = useAiAnalysisMutation();
+  const { mutate: aiAnalysis, isPending, isError } = useAiAnalysisMutation();
 
   const handleTalkToBeth = async () => {
     setMessage("");
@@ -76,11 +76,15 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ gameIdRef }) => {
                       words={[
                         "Studying position...",
                         "Analyzing moves...",
-                        "Evaluating score...",
+                        "Evaluating scores...",
                       ]}
                       loop={false}
                       typeSpeed={50}
                     />
+                  </div>
+                ) : isError ? (
+                  <div className="text-red-500 text-center mt-10">
+                    Oops! Something went wrong. Please try again.
                   </div>
                 ) : (
                   <div className="flex">

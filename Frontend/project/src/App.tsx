@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useState, useRef } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess, Square, Move } from "chess.js";
@@ -22,9 +23,10 @@ function App() {
   const [isGameOver, setIsGameOver] = useState(false);
   const [alertGameNotStarted, setAlertGameNotStarted] = useState(false);
   const [errorStartingGame, setErrorStartingGame] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string>("");
   const gameIdRef = useRef("");
   const [difyVoiceMove, setDifyVoiceMove] = useState("");
+
   // const [moveHistory, setMoveHistory] = useState<string[]>([]);
 
   const { mutate: playUserMove, isPending } = usePlayMoveMutation();
@@ -35,7 +37,8 @@ function App() {
 
   const getMergedSquareStyles = () => {
     const checkStyles = getCustomSquareStyleInCheck();
-    return { ...checkStyles, ...squareStyles };
+    const lastMoveStyle = highlightLastMove();
+    return { ...squareStyles, ...checkStyles, ...lastMoveStyle };
   };
 
   const getCustomSquareStyleInCheck = () => {
@@ -70,6 +73,23 @@ function App() {
       : {};
   };
 
+  const highlightLastMove = () => {
+    const moveStack = game.history({ verbose: true });
+
+    if (moveStack.length === 0) return {};
+    const lastMove = moveStack[moveStack.length - 1];
+    console.log(lastMove);
+    return {
+      [lastMove.from as Square]: {
+        backgroundColor: "rgba(182, 79, 79, 0.3)",
+      },
+      [lastMove.to as Square]: {
+        backgroundColor: "rgba(249, 2, 2, 0.4)",
+      },
+    };
+  };
+
+  // -------------------------------------------- Game Actions --------------------------------
   const playSound = (game: Chess, result: Move) => {
     if (game.isCheckmate()) {
       const audio1 = new Audio("sounds/move-check.mp3");
@@ -96,7 +116,7 @@ function App() {
       });
     }
   };
-  // -------------------------------------------- Game Actions --------------------------------
+
   function onDrop(sourceSquare: string, targetSquare: string) {
     if (!gameStarted) {
       setAlertGameNotStarted(true);
@@ -192,7 +212,9 @@ function App() {
 
     setErrorMessage(null); // Clear any previous error
     makeAMove(difyVoiceMove);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difyVoiceMove]);
+
   // ---------------------------------- UI Data--------------------------------------
 
   return (
