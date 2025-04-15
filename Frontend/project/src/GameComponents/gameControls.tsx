@@ -15,10 +15,6 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; // 
 import useGameStore from "@/hooks/useGameStore";
 // Define the props interface
 interface GameControlsProps {
-  setGameStarted: React.Dispatch<React.SetStateAction<boolean>>;
-  gameStarted: boolean;
-  isGameOver: boolean;
-  setIsGameOver: React.Dispatch<React.SetStateAction<boolean>>;
   errorStartingGame: boolean;
   setErrorStartingGame: React.Dispatch<React.SetStateAction<boolean>>;
   difyVoiceMove: string;
@@ -28,10 +24,6 @@ interface GameControlsProps {
 }
 
 function GameControls({
-  setGameStarted,
-  gameStarted,
-  isGameOver,
-  setIsGameOver,
   setErrorStartingGame,
   errorMessage, // Use errorMessage from props
   setErrorMessage,
@@ -41,7 +33,16 @@ function GameControls({
   const { mutate: endGame } = useEndGameMutation();
   const { mutate: undoMove } = useUndoMoveMutation();
   const { mutate: voiceToSan } = useVoiceToSanMutation();
-  const { game, setGame, gameId, setGameId } = useGameStore();
+  const {
+    game,
+    setGame,
+    gameId,
+    setGameId,
+    gameStarted,
+    setGameStarted,
+    isGameOver,
+    setIsGameOver,
+  } = useGameStore();
 
   const [currentTranscript, setCurrentTranscript] = useState<string | null>(
     null
@@ -96,18 +97,24 @@ function GameControls({
     const userEloRatingElement = document.getElementById(
       "userEloRating"
     ) as HTMLInputElement;
-    let userEloRating = 1320; //default
-    if (userEloRatingElement && userEloRatingElement.value.length) {
-      const inputElo = parseInt(userEloRatingElement.value);
-      if (inputElo >= 1320) userEloRating = inputElo;
+    let userEloRating = 1320; // default
+
+    if (userEloRatingElement && userEloRatingElement.value.trim().length) {
+      const inputElo = parseInt(userEloRatingElement.value, 10);
+
+      // Validate input ELO
+      if (!isNaN(inputElo) && inputElo >= 1320 && inputElo <= 3000) {
+        userEloRating = inputElo;
+      } else {
+        console.warn("Invalid ELO input. Using default value of 1320.");
+      }
     }
+
     startGame(userEloRating, {
       onSuccess: (data) => {
         setGameStarted(true);
         setIsGameOver(false);
         setErrorStartingGame(false);
-        console.log("GAme STarted");
-        console.log("Game started successfully:", data);
         setGameId(data.game_id);
       },
       onError: (error) => {

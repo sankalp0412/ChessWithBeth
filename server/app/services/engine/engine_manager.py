@@ -30,7 +30,7 @@ class EngineManager:
         pass
 
     def create_or_get_engine(
-        self, game_id: str, elo_level: str | int = 1320
+        self, game_id: str, elo_level: str | int
     ) -> chess.engine.SimpleEngine:
         try:
             if game_id not in self._engine_map:

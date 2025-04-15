@@ -29,7 +29,7 @@ chess_router = APIRouter()
 @chess_router.post("/start_game/")
 def start_new_game(
     request: Request,
-    user_elo: int = 1320,
+    user_elo: int | str,
     engine_manager: EngineManager = Depends(get_engine_manager),
 ):
     """Start a new chess game."""

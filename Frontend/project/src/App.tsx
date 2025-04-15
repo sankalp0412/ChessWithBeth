@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess, Square, Move } from "chess.js";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,10 +18,8 @@ import useGameStore from "./hooks/useGameStore";
 
 function App() {
   const [showChessboard, setShowChessboard] = useState(false);
-  const { game, setGame, gameId, setGameId } = useGameStore();
-  const [gameStarted, setGameStarted] = useState(false);
+  const { game, setGame, gameId, gameStarted, setIsGameOver } = useGameStore();
   const [squareStyles, setSquareStyles] = useState({});
-  const [isGameOver, setIsGameOver] = useState(false);
   const [alertGameNotStarted, setAlertGameNotStarted] = useState(false);
   const [errorStartingGame, setErrorStartingGame] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -208,7 +206,7 @@ function App() {
       return;
     }
 
-    setErrorMessage(null); // Clear any previous error
+    setErrorMessage(""); // Clear any previous error
     makeAMove(difyVoiceMove);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difyVoiceMove]);
@@ -341,10 +339,6 @@ function App() {
                     </h2>
                     <div className="mb-4">
                       <GameControls
-                        setGameStarted={setGameStarted}
-                        gameStarted={gameStarted}
-                        isGameOver={isGameOver}
-                        setIsGameOver={setIsGameOver}
                         errorStartingGame={errorStartingGame}
                         setErrorStartingGame={setErrorStartingGame}
                         setDifyVoiceMove={setDifyVoiceMove}
