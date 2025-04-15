@@ -30,6 +30,10 @@ interface voiceToSanResponse {
   message: string,
 }
 
+interface aiAnalysisResponse{
+  analysis: string
+}
+
 // Function to start a game
 export const startGame = async (userElo: number): Promise<StartGameResponse> => {
   try {
@@ -82,6 +86,18 @@ export const voiceToSan = async(voiceText: string, game_id: string): Promise<voi
   }
   catch (error) {
     console.error("Error converting voice to SAN:", error);
+    throw error;
+  }
+}
+
+
+export const aiAnalysis = async (game_id: string) : Promise<aiAnalysisResponse> => {
+  try{
+    const response = await api.get(`/get_ai_analysis/?game_id=${game_id}`);
+    return response.data
+  }
+  catch (error) {
+    console.error("Error fetching Analysis:", error);
     throw error;
   }
 }

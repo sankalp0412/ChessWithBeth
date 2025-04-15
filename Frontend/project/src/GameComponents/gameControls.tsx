@@ -253,7 +253,7 @@ function GameControls({
             </Button>
             {!isGameOver && (
               <div className="relative bottom-0 right-0">
-                <ChatWidget />
+                <ChatWidget gameIdRef={gameIdRef} />
               </div>
             )}
             <div className="bg-white rounded-lg shadow-lg p-6">

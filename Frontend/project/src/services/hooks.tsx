@@ -5,6 +5,7 @@ import {
   endGame,
   undoMove,
   voiceToSan,
+  aiAnalysis,
 } from "../services/chessServices";
 
 export function useStartGameMutation() {
@@ -63,5 +64,12 @@ export function useVoiceToSanMutation() {
       voiceText: string;
       game_id: string;
     }) => voiceToSan(voiceText, game_id),
+  });
+}
+
+export function useAiAnalysisMutation() {
+  return useMutation({
+    mutationKey: ["aiAnalysis"],
+    mutationFn: ({ game_id }: { game_id: string }) => aiAnalysis(game_id),
   });
 }

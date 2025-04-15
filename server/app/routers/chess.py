@@ -260,7 +260,7 @@ async def get_ai_analysis(
         top_moves: List = await game.get_top_stockfish_moves()
         fen = game.get_fen()
         turn = game.board.turn
-
+        log_debug(f"Top Moves from stockfish = {top_moves}")
         analysis = run_ai_analysis(str(top_moves), fen, turn)
 
         return {
