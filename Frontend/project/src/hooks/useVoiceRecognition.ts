@@ -12,7 +12,7 @@ export function useVoiceRecognition(
 
   const debounce = (func, delay: number) => {
     let timer;
-    return (...args: any[]) => {
+    return (...args: Parameters<typeof func>) => {
       clearTimeout(timer);
       timer = setTimeout(() => func(...args), delay);
     };

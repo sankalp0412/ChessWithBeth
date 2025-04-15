@@ -9,20 +9,16 @@ import {
   useUndoMoveMutation,
   useVoiceToSanMutation,
 } from "@/services/hooks";
-import { Chess } from "chess.js";
 import { useVoiceRecognition } from "@/hooks/useVoiceRecognition";
 import { useState } from "react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"; // Import shadcn Alert
-
+import useGameStore from "@/hooks/useGameStore";
 // Define the props interface
 interface GameControlsProps {
   setGameStarted: React.Dispatch<React.SetStateAction<boolean>>;
   gameStarted: boolean;
   isGameOver: boolean;
   setIsGameOver: React.Dispatch<React.SetStateAction<boolean>>;
-  gameIdRef: React.MutableRefObject<string>;
-  game: Chess;
-  setGame: React.Dispatch<React.SetStateAction<Chess>>;
   errorStartingGame: boolean;
   setErrorStartingGame: React.Dispatch<React.SetStateAction<boolean>>;
   difyVoiceMove: string;
@@ -36,9 +32,6 @@ function GameControls({
   gameStarted,
   isGameOver,
   setIsGameOver,
-  gameIdRef,
-  game,
-  setGame,
   setErrorStartingGame,
   errorMessage, // Use errorMessage from props
   setErrorMessage,
@@ -47,7 +40,8 @@ function GameControls({
   const { mutate: startGame } = useStartGameMutation();
   const { mutate: endGame } = useEndGameMutation();
   const { mutate: undoMove } = useUndoMoveMutation();
-  const { mutate: voiceToSan, isPending } = useVoiceToSanMutation();
+  const { mutate: voiceToSan } = useVoiceToSanMutation();
+  const { game, setGame, gameId, setGameId } = useGameStore();
 
   const [currentTranscript, setCurrentTranscript] = useState<string | null>(
     null
@@ -63,7 +57,7 @@ function GameControls({
       setIsMoveProcessing(true); // Show loading state
 
       voiceToSan(
-        { voiceText: command, game_id: gameIdRef.current },
+        { voiceText: command, game_id: gameId },
         {
           onSuccess: (response) => {
             const dify_response = response.message;
@@ -114,7 +108,7 @@ function GameControls({
         setErrorStartingGame(false);
         console.log("GAme STarted");
         console.log("Game started successfully:", data);
-        gameIdRef.current = data.game_id;
+        setGameId(data.game_id);
       },
       onError: (error) => {
         setErrorStartingGame(true);
@@ -131,11 +125,9 @@ function GameControls({
       console.warn("Autoplay blocked:", e);
     });
 
-    endGame(gameIdRef.current, {
+    endGame(gameId, {
       onSuccess: (data) => {
-        console.log(
-          `Game with game ID: ${gameIdRef.current} ended successfully: ${data}`
-        );
+        console.log(`Game with game ID: ${gameId} ended successfully: ${data}`);
       },
       onError: (error) => {
         console.error(`Error ending game : ${error}`);
@@ -161,7 +153,7 @@ function GameControls({
 
     //API Call
 
-    undoMove(gameIdRef.current, {
+    undoMove(gameId, {
       onSuccess: (data) => {
         console.log(`TakeBack Completed: ${data}`);
       },
@@ -253,7 +245,7 @@ function GameControls({
             </Button>
             {!isGameOver && (
               <div className="relative bottom-0 right-0">
-                <ChatWidget gameIdRef={gameIdRef} />
+                <ChatWidget />
               </div>
             )}
             <div className="bg-white rounded-lg shadow-lg p-6">

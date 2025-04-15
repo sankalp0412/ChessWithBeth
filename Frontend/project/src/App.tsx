@@ -14,20 +14,18 @@ import {
 } from "@/components/ui/resizable";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { usePlayMoveMutation } from "./services/hooks";
+import useGameStore from "./hooks/useGameStore";
 
 function App() {
   const [showChessboard, setShowChessboard] = useState(false);
-  const [game, setGame] = useState(new Chess());
+  const { game, setGame, gameId, setGameId } = useGameStore();
   const [gameStarted, setGameStarted] = useState(false);
   const [squareStyles, setSquareStyles] = useState({});
   const [isGameOver, setIsGameOver] = useState(false);
   const [alertGameNotStarted, setAlertGameNotStarted] = useState(false);
   const [errorStartingGame, setErrorStartingGame] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const gameIdRef = useRef("");
   const [difyVoiceMove, setDifyVoiceMove] = useState("");
-
-  // const [moveHistory, setMoveHistory] = useState<string[]>([]);
 
   const { mutate: playUserMove, isPending } = usePlayMoveMutation();
 
@@ -146,7 +144,7 @@ function App() {
       setIsGameOver(true);
     }
     playUserMove(
-      { userMove: result.san, game_id: gameIdRef.current },
+      { userMove: result.san, game_id: gameId },
       {
         onSuccess: (data) => {
           console.log(`Played Move: ${data}`);
@@ -347,9 +345,6 @@ function App() {
                         gameStarted={gameStarted}
                         isGameOver={isGameOver}
                         setIsGameOver={setIsGameOver}
-                        gameIdRef={gameIdRef}
-                        game={game}
-                        setGame={setGame}
                         errorStartingGame={errorStartingGame}
                         setErrorStartingGame={setErrorStartingGame}
                         setDifyVoiceMove={setDifyVoiceMove}
