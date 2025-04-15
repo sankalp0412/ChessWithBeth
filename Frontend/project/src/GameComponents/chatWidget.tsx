@@ -30,10 +30,6 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ gameIdRef }) => {
         },
       }
     );
-    // setTimeout(() => {}, 2000);
-    // setMessage(
-    //   "Alright, let's have a look at this position. Hmm... Now this is an interesting position. White has some dynamic possibilities here.\n\nNotice the pawn structure in the center. Could an exchange there open up lines for your pieces, potentially creating pressure on Black's king? Maybe a pawn sac is in order.\n\nThink about how a pawn advance might disrupt Black's pawn structure and create attacking opportunities. Just a thought!\n"
-    // );
   };
 
   useEffect(() => {
