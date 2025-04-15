@@ -39,7 +39,7 @@ class ChessGame:
             self.elo_level = elo_level
             self.game_id = game_id
             log_success(
-                f"Chess Game instances created for game ID: {game_id} and Engine initialized Successfully : {self.engine}"
+                f"Chess Game instances created for game ID: {game_id} and Engine initialized Successfully : {self.engine}, with elo_level: {self.elo_level}"
             )
         except EngineManagerError as eme:
             log_error(f"EngineManagerError while initializing chess game: {str(eme)}")
