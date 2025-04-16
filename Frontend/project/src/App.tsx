@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/resizable";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { usePlayMoveMutation } from "./services/hooks";
-import useGameStore from "./hooks/useGameStore";
+import useGameStore, { InitilizeGameStore } from "./hooks/useGameStore";
 
 function App() {
   const [showChessboard, setShowChessboard] = useState(false);
@@ -148,6 +148,7 @@ function App() {
           console.log(`Played Move: ${data}`);
           if (data.is_game_over) {
             setIsGameOver(true);
+            useGameStore.getState().updateLastActivity();
           }
           playStockFishMove(data.stockfish_san);
         },
@@ -210,6 +211,12 @@ function App() {
     makeAMove(difyVoiceMove);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difyVoiceMove]);
+
+  //Use effect for Reloading old game state
+
+  useEffect(() => {
+    InitilizeGameStore();
+  }, []);
 
   // ---------------------------------- UI Data--------------------------------------
 

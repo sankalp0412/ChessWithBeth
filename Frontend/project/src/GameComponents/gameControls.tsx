@@ -42,6 +42,7 @@ function GameControls({
     setGameStarted,
     isGameOver,
     setIsGameOver,
+    updateLastActivity,
   } = useGameStore();
 
   const [currentTranscript, setCurrentTranscript] = useState<string | null>(
@@ -116,6 +117,8 @@ function GameControls({
         setIsGameOver(false);
         setErrorStartingGame(false);
         setGameId(data.game_id);
+
+        useGameStore.getState().updateLastActivity();
       },
       onError: (error) => {
         setErrorStartingGame(true);
@@ -135,6 +138,8 @@ function GameControls({
         audio.play().catch((e) => {
           console.warn("Autoplay blocked:", e);
         });
+
+        useGameStore.getState().resetGame();
       },
       onError: (error) => {
         console.error(`Error ending game : ${error}`);
