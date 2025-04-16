@@ -7,19 +7,17 @@ import { BotMessageSquare } from "lucide-react";
 
 import { useAiAnalysisMutation } from "@/services/hooks";
 import { Typewriter } from "react-simple-typewriter";
-interface ChatWidgetProps {
-  gameIdRef: React.MutableRefObject<string>;
-}
+import useGameStore from "@/hooks/useGameStore";
 
-const ChatWidget: React.FC<ChatWidgetProps> = ({ gameIdRef }) => {
+const ChatWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
-  const { mutate: aiAnalysis, isPending } = useAiAnalysisMutation();
-
+  const { mutate: aiAnalysis, isPending, isError } = useAiAnalysisMutation();
+  const { gameId } = useGameStore();
   const handleTalkToBeth = async () => {
     setMessage("");
     aiAnalysis(
-      { game_id: gameIdRef.current },
+      { game_id: gameId },
       {
         onSuccess: (data) => {
           console.log(data);
@@ -76,11 +74,15 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ gameIdRef }) => {
                       words={[
                         "Studying position...",
                         "Analyzing moves...",
-                        "Evaluating score...",
+                        "Evaluating scores...",
                       ]}
                       loop={false}
                       typeSpeed={50}
                     />
+                  </div>
+                ) : isError ? (
+                  <div className="text-red-500 text-center mt-10">
+                    Oops! Something went wrong. Please try again.
                   </div>
                 ) : (
                   <div className="flex">

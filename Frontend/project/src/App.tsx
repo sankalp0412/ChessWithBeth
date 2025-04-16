@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
+import { useEffect, useState } from "react";
 import { Chessboard } from "react-chessboard";
 import { Chess, Square, Move } from "chess.js";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,19 +14,16 @@ import {
 } from "@/components/ui/resizable";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { usePlayMoveMutation } from "./services/hooks";
+import useGameStore from "./hooks/useGameStore";
 
 function App() {
   const [showChessboard, setShowChessboard] = useState(false);
-  const [game, setGame] = useState(new Chess());
-  const [gameStarted, setGameStarted] = useState(false);
+  const { game, setGame, gameId, gameStarted, setIsGameOver } = useGameStore();
   const [squareStyles, setSquareStyles] = useState({});
-  const [isGameOver, setIsGameOver] = useState(false);
   const [alertGameNotStarted, setAlertGameNotStarted] = useState(false);
   const [errorStartingGame, setErrorStartingGame] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const gameIdRef = useRef("");
+  const [errorMessage, setErrorMessage] = useState<string>("");
   const [difyVoiceMove, setDifyVoiceMove] = useState("");
-  // const [moveHistory, setMoveHistory] = useState<string[]>([]);
 
   const { mutate: playUserMove, isPending } = usePlayMoveMutation();
 
@@ -35,7 +33,8 @@ function App() {
 
   const getMergedSquareStyles = () => {
     const checkStyles = getCustomSquareStyleInCheck();
-    return { ...checkStyles, ...squareStyles };
+    const lastMoveStyle = highlightLastMove();
+    return { ...squareStyles, ...checkStyles, ...lastMoveStyle };
   };
 
   const getCustomSquareStyleInCheck = () => {
@@ -70,6 +69,23 @@ function App() {
       : {};
   };
 
+  const highlightLastMove = () => {
+    const moveStack = game.history({ verbose: true });
+
+    if (moveStack.length === 0) return {};
+    const lastMove = moveStack[moveStack.length - 1];
+    console.log(lastMove);
+    return {
+      [lastMove.from as Square]: {
+        backgroundColor: "rgba(182, 79, 79, 0.3)",
+      },
+      [lastMove.to as Square]: {
+        backgroundColor: "rgba(249, 2, 2, 0.4)",
+      },
+    };
+  };
+
+  // -------------------------------------------- Game Actions --------------------------------
   const playSound = (game: Chess, result: Move) => {
     if (game.isCheckmate()) {
       const audio1 = new Audio("sounds/move-check.mp3");
@@ -96,7 +112,7 @@ function App() {
       });
     }
   };
-  // -------------------------------------------- Game Actions --------------------------------
+
   function onDrop(sourceSquare: string, targetSquare: string) {
     if (!gameStarted) {
       setAlertGameNotStarted(true);
@@ -126,7 +142,7 @@ function App() {
       setIsGameOver(true);
     }
     playUserMove(
-      { userMove: result.san, game_id: gameIdRef.current },
+      { userMove: result.san, game_id: gameId },
       {
         onSuccess: (data) => {
           console.log(`Played Move: ${data}`);
@@ -190,9 +206,11 @@ function App() {
       return;
     }
 
-    setErrorMessage(null); // Clear any previous error
+    setErrorMessage(""); // Clear any previous error
     makeAMove(difyVoiceMove);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difyVoiceMove]);
+
   // ---------------------------------- UI Data--------------------------------------
 
   return (
@@ -321,13 +339,6 @@ function App() {
                     </h2>
                     <div className="mb-4">
                       <GameControls
-                        setGameStarted={setGameStarted}
-                        gameStarted={gameStarted}
-                        isGameOver={isGameOver}
-                        setIsGameOver={setIsGameOver}
-                        gameIdRef={gameIdRef}
-                        game={game}
-                        setGame={setGame}
                         errorStartingGame={errorStartingGame}
                         setErrorStartingGame={setErrorStartingGame}
                         setDifyVoiceMove={setDifyVoiceMove}
