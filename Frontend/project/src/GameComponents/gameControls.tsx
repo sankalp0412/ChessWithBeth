@@ -90,10 +90,6 @@ function GameControls({
   // ---------------------------------- Game Actions -----------------------------------
 
   const handleStartGame = () => {
-    const audio = new Audio("sounds/game-start.mp3");
-    audio.play().catch((e) => {
-      console.warn("Autoplay blocked:", e);
-    });
     const userEloRatingElement = document.getElementById(
       "userEloRating"
     ) as HTMLInputElement;
@@ -112,6 +108,10 @@ function GameControls({
 
     startGame(userEloRating, {
       onSuccess: (data) => {
+        const audio = new Audio("sounds/game-start.mp3");
+        audio.play().catch((e) => {
+          console.warn("Autoplay blocked:", e);
+        });
         setGameStarted(true);
         setIsGameOver(false);
         setErrorStartingGame(false);
@@ -127,14 +127,14 @@ function GameControls({
   const handleQuitGame = () => {
     setGameStarted(false);
     setIsGameOver(false);
-    const audio = new Audio("sounds/game-end.mp3");
-    audio.play().catch((e) => {
-      console.warn("Autoplay blocked:", e);
-    });
 
     endGame(gameId, {
       onSuccess: (data) => {
         console.log(`Game with game ID: ${gameId} ended successfully: ${data}`);
+        const audio = new Audio("sounds/game-end.mp3");
+        audio.play().catch((e) => {
+          console.warn("Autoplay blocked:", e);
+        });
       },
       onError: (error) => {
         console.error(`Error ending game : ${error}`);
