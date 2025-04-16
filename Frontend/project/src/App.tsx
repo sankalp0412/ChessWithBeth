@@ -209,7 +209,6 @@ function App() {
 
     setErrorMessage(""); // Clear any previous error
     makeAMove(difyVoiceMove);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [difyVoiceMove]);
 
   //Use effect for Reloading old game state
@@ -329,7 +328,7 @@ function App() {
                       }}
                       customDarkSquareStyle={{ backgroundColor: "#8363aa" }}
                       customLightSquareStyle={{ backgroundColor: "#EDE7F6" }}
-                      // arePremovesAllowed={true}
+                      arePremovesAllowed={true}
                       onSquareClick={() => resetSquareStyles()}
                     />
                   </div>

@@ -42,7 +42,6 @@ function GameControls({
     setGameStarted,
     isGameOver,
     setIsGameOver,
-    updateLastActivity,
   } = useGameStore();
 
   const [currentTranscript, setCurrentTranscript] = useState<string | null>(
