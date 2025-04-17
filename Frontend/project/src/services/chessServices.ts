@@ -49,7 +49,6 @@ export const startGame = async (userElo: number): Promise<StartGameResponse> => 
 export const playUserMove = async (userMove: string, game_id: string): Promise<moveResponse> => {
   try {
     const response = await api.post<moveResponse>(`/play_move/?game_id=${game_id}`, { move: userMove });
-    console.log(response.data);
     return response.data;
   } catch (error) {
     console.error("Error playing user move:", error);
