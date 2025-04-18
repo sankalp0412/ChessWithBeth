@@ -1,0 +1,33 @@
+services:
+  redis:
+    image: redis:latest
+    container_name: chessWithBeth-redis
+    ports:
+      - "6379:6379" 
+    volumes:
+      - redis-data:/data
+    restart: always
+
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: redisinsight
+    ports:
+      - "5540:5540"
+    depends_on:
+      - redis
+    environment:
+      - REDIS_URL=redis://redis:6379 
+  server:
+    build: ./server
+    ports:
+      - "8000:8000"
+    container_name: chessWithBeth-backend
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT:-6379}  # Default to 6379 if not set
+      - SERVER_PORT=${SERVER_PORT:-8000}  # Default to 8000 if not set
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:

@@ -1,12 +1,15 @@
 import redis
+import os
 
 
 def get_redis_client():
     redis_client = None  # Ensure it's always defined
     try:
-        redis_client = redis.Redis(
-            host="localhost", port=6379, db=0, decode_responses=False
-        )
+        if "DOCKER" in os.environ:
+            host = "redis"
+        else:
+            host = "localhost"
+        redis_client = redis.Redis(host=host, port=6379, db=0, decode_responses=False)
         redis_client.ping()  # Check if Redis is reachable
     except Exception as e:
         print(f"Error connecting to Redis: {e}")
