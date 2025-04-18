@@ -22,10 +22,14 @@ services:
     ports:
       - "8000:8000"
     container_name: chessWithBeth-backend
+    env_file:
+      - ./server/.env
     environment:
+      - DOCKER=true
       - REDIS_HOST=redis
       - REDIS_PORT=${REDIS_PORT:-6379}  # Default to 6379 if not set
       - SERVER_PORT=${SERVER_PORT:-8000}  # Default to 8000 if not set
+      - STOCKFISH_PATH=/opt/stockfish
     depends_on:
       - redis
 
