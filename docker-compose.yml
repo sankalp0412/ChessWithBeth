@@ -8,22 +8,13 @@ services:
       - redis-data:/data
     restart: always
 
-  redisinsight:
-    image: redis/redisinsight:latest
-    container_name: redisinsight
-    ports:
-      - "5540:5540"
-    depends_on:
-      - redis
-    environment:
-      - REDIS_URL=redis://redis:6379 
   server:
     build: ./server
     ports:
       - "8000:8000"
     container_name: chessWithBeth-backend
     env_file:
-      - ./server/.env
+      - ./.env
     environment:
       - DOCKER=true
       - REDIS_HOST=redis
@@ -38,6 +29,8 @@ services:
     container_name: chessWithBeth-frontend
     ports:
       - "5173:5173"
+    env_file:
+      ./.env
     volumes:
       - ./Frontend/project:/app
       - /app/node_modules
