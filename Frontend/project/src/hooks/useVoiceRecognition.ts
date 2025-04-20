@@ -19,7 +19,7 @@ export function useVoiceRecognition(
   };
 
   const processTranscript = debounce((text: string) => {
-    console.log("Processing transcript:", text);
+    // console.log("Processing transcript:", text);
     if (text) {
       processCommand(text); // Pass the command to the parent component
     } else {
