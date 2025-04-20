@@ -20,7 +20,7 @@ const ChatWidget: React.FC = () => {
       { game_id: gameId },
       {
         onSuccess: (data) => {
-          console.log(data);
+          // console.log(data);
           setMessage(data.analysis);
         },
         onError: (error) => {
