@@ -67,7 +67,6 @@ class ChessGame:
                 elo_level=data["elo_level"],
             )
             game.set_board_from_fen(data["fen"], data["move_stack"])
-            log_success(f"Created new Game instance from data:{game}")
             return game
         except Exception as e:
             log_error(f"Error Creating Game from dictionary  data: {str(e)}")
@@ -80,28 +79,21 @@ class ChessGame:
             for move in move_stack:
                 self.board.push(move)
             self.move_stack = move_stack
-            log_success(
-                f"Board updated successfully with FEN: {self.board.fen()} and move stack: {self.move_stack}"
-            )
         except Exception as e:
             log_error("Error updating board state:{e}")
             raise ChessServiceError(f"Error Updating board state:{e}")
 
     def make_user_move(self, move: str):
         """Applies the user's move (in SAN notation)."""
-        log_debug(f"User chess move as coming from frontend: {move}")
         try:
             # Convert SAN to a Move object
             chess_move = self.board.parse_san(move)
-            log_debug(f"chess_move after converting from SAN: {chess_move}")
 
             # Check if the move is legal
             if chess_move in self.board.legal_moves:
                 # Push the move to the board
                 self.board.push(chess_move)
                 self.move_stack.append(chess_move)
-                log_debug(f"Move Stack after user move: \n {self.move_stack}")
-                print("Board after pushing the move\n", self.board)
             else:
                 raise ValueError("Illegal move by User")
         except Exception as e:
@@ -115,7 +107,6 @@ class ChessGame:
             return None, None, None
         try:
             result = self.engine.play(self.board, chess.engine.Limit(time=2))
-            log_debug(f"Play Result from Self.engine:{result}")
             engine_move = result.move.uci()
             # Make move in board
             move = chess.Move.from_uci(engine_move)  # this move is a Move object
@@ -123,7 +114,6 @@ class ChessGame:
             self.board.push(move)
             self.move_stack.append(move)
             # also return san move
-            log_success(f"Board after engine move: \n {self.board}")
             is_game_over = self.board.is_game_over()
             return engine_move, move_san, is_game_over
         except InvalidMoveError as e:
@@ -143,7 +133,6 @@ class ChessGame:
         try:
             if self.is_game_over():
                 return []
-            log_debug(f"Legal  Moves in the positin : {list(self.board.legal_moves)}")
             n = min(3, len(list(self.board.legal_moves)))
             with self.engine.analysis(
                 board=self.board,
@@ -187,7 +176,6 @@ class ChessGame:
             self.board.pop()  # User move undone
             self.move_stack.pop()
             self.move_stack.pop()
-            log_success(f"Board after undo: \n {self.board}")
             return self.board.fen()
         except IndexError as i:
             log_error(f"Index error while takeback , move Stack empty:{i}")
