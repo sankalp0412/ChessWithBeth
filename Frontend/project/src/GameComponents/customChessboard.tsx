@@ -197,7 +197,7 @@ const CustomChessboard: React.FC = () => {
 
     // Check if difyVoiceMove is a valid move
     if (!game.moves().includes(difyVoiceMove)) {
-      console.error("Invalid move:", difyVoiceMove);
+      // console.error("Invalid move:", difyVoiceMove);
       setErrorMessage("Illegal move. Please try again."); // Set error message
       return;
     }

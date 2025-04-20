@@ -53,7 +53,7 @@ function GameControls({
 
   const { isVoiceEnabled, toggleVoice, interimTranscript, isProcessing } =
     useVoiceRecognition((command) => {
-      console.log("Voice command received:", command);
+      // console.log("Voice command received:", command);
       setCurrentTranscript(command); // Set the transcript in the alert
       setIsMoveProcessing(true); // Show loading state
 
@@ -67,10 +67,10 @@ function GameControls({
             } else if (dify_response === "RESET") {
               handleQuitGame();
             } else if (dify_response === "ILLEGAL") {
-              console.log("Illegal Move :", dify_response);
+              // console.log("Illegal Move :", dify_response);
               setErrorMessage("Illegal move. Please try again.");
             } else {
-              console.log("Move to play :", dify_response);
+              // console.log("Move to play :", dify_response);
               setErrorMessage(""); // Clear any previous error
               setDifyVoiceMove("");
               setDifyVoiceMove(dify_response);
@@ -166,7 +166,7 @@ function GameControls({
 
     undoMove(gameId, {
       onSuccess: (data) => {
-        console.log(`TakeBack Completed: ${data}`);
+        // console.log(`TakeBack Completed: ${data}`);
       },
       onError: (error) => {
         console.error(`Error while takeback:${error}`);
