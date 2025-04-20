@@ -1,0 +1,44 @@
+services:
+  redis:
+    image: redis:latest
+    container_name: chessWithBeth-redis
+    ports:
+      - "6379:6379" 
+    volumes:
+      - redis-data:/data
+    restart: always
+
+  server:
+    build: ./server
+    ports:
+      - "8000:8000"
+    container_name: chessWithBeth-backend
+    env_file:
+      - ./.env
+    environment:
+      - DOCKER=true
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT:-6379}  # Default to 6379 if not set
+      - SERVER_PORT=${SERVER_PORT:-8000}  # Default to 8000 if not set
+      - STOCKFISH_PATH=/opt/stockfish
+    depends_on:
+      - redis
+
+  frontend:
+    build: ./Frontend/project
+    container_name: chessWithBeth-frontend
+    ports:
+      - "5173:5173"
+    env_file:
+      ./.env
+    volumes:
+      - ./Frontend/project:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - server
+
+
+volumes:
+  redis-data:

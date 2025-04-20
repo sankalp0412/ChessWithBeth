@@ -11,13 +11,17 @@ class EngineManagerError(ChessGameError):
     pass
 
 
-load_dotenv()
+if "DOCKER" not in os.environ:
+    load_dotenv()
 
-STOCKFISH_PATH = os.getenv("STOCKFISH_PATH")
+# Get the Stockfish path - prioritize environment variable
+STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH")
 
 if not STOCKFISH_PATH:
-    log_error("STOCKFISH_PATH is not set. Please check your .env file.")
-    raise EngineManagerError("STOCKFISH_PATH is not set. Please check your .env file.")
+    log_error("STOCKFISH_PATH is not set. Please check your environment.")
+    raise EngineManagerError(
+        "STOCKFISH_PATH is not set. Please check your environment."
+    )
 
 log_debug(f"STOCKFISH_PATH loaded: {STOCKFISH_PATH}")
 
@@ -30,7 +34,7 @@ class EngineManager:
         pass
 
     def create_or_get_engine(
-        self, game_id: str, elo_level: str | int = 1320
+        self, game_id: str, elo_level: str | int
     ) -> chess.engine.SimpleEngine:
         try:
             if game_id not in self._engine_map:
@@ -45,9 +49,9 @@ class EngineManager:
                 f"Engine Error while initializing for Game ID : {game_id} : {ee}"
             )
         except Exception as e:
-            log_error(f" Error while initializing for Game ID : {game_id} : {ee}")
+            log_error(f" Error while initializing for Game ID : {game_id} : {e}")
             raise EngineManagerError(
-                f" Error while initializing for Game ID : {game_id} : {ee}"
+                f" Error while initializing for Game ID : {game_id} : {e}"
             )
 
     def create_engine(self, elo_level: str | int) -> chess.engine.SimpleEngine:

@@ -26,7 +26,7 @@ class ChessGame:
     """Handles the game state and Stockfish engine."""
 
     def __init__(
-        self, game_id: str, engine_manager: EngineManager, elo_level: str = 1320
+        self, game_id: str, engine_manager: EngineManager, elo_level: str | int
     ):
         try:
             self.engine = engine_manager.create_or_get_engine(
@@ -39,7 +39,7 @@ class ChessGame:
             self.elo_level = elo_level
             self.game_id = game_id
             log_success(
-                f"Chess Game instances created for game ID: {game_id} and Engine initialized Successfully : {self.engine}"
+                f"Chess Game instances created for game ID: {game_id} and Engine initialized Successfully : {self.engine}, with elo_level: {self.elo_level}"
             )
         except EngineManagerError as eme:
             log_error(f"EngineManagerError while initializing chess game: {str(eme)}")
@@ -48,13 +48,6 @@ class ChessGame:
         except Exception as e:
             log_error(f"Failed to initialize chess game: {str(e)}")
             raise ChessServiceError(f"Chess game initialization failed: {str(e)}")
-
-    def setup_stockfish_elo(self, user_elo: int):
-        """Sets the Stockfish engine's ELO rating."""
-        self.stockfish_engine.update_engine_parameters(
-            {"UCI_LimitStrength": True, "UCI_Elo": user_elo}
-        )
-        self.elo_level = user_elo
 
     def to_dict(self):
         """Converts game object to serializable Dictionary"""
