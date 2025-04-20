@@ -16,7 +16,6 @@ class DifyServiceError(ChessGameError):
 
 
 def run_ai_analysis(top_moves: str, fen: str, turn: chess.Color) -> str:
-    print(f"Top Moves: {top_moves}")
     to_play = "White" if turn else "Black"
     url = "https://api.dify.ai/v1/chat-messages"
 
@@ -50,7 +49,6 @@ def run_ai_analysis(top_moves: str, fen: str, turn: chess.Color) -> str:
                 raise DifyServiceError(f"Error in DIFY LLM API: {response.text}")
 
         json_response = response.json()
-        log_debug(f"JSON Response from DIFY BETH : {json_response}")
         analysis = json_response["answer"]
         return analysis
 

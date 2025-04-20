@@ -25,7 +25,6 @@ def redis_set_game_by_id(game_id: str, redis_client: redis.Redis, data: dict):
     try:
         serialized_data = pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
         redis_client.set(name=game_id, value=serialized_data)
-        log_success(f"Saved game to: {game_id}")
     except Exception as e:
         log_error(str(e))
         raise RedisServiceError(f"Failed to save game: {str(e)}")
@@ -39,8 +38,6 @@ def redis_get_game_data_by_id(game_id: str, redis_client: redis.Redis) -> dict:
             raise RedisServiceError(f"Game not found: {game_id}")
 
         try:
-            log_success(f"Raw game data type:{type(game_data)}")
-
             if not isinstance(game_data, bytes):
                 log_error(f"Deserialized data is not a dictionary: {type(data)}")
                 raise RedisServiceError("Invalid game data format")
@@ -49,7 +46,6 @@ def redis_get_game_data_by_id(game_id: str, redis_client: redis.Redis) -> dict:
             data = pickle.loads(game_data)
             if not isinstance(data, dict):
                 raise RedisServiceError("Invalid game data format")
-            log_success(f"Retrieved game data for ID: {game_id}")
             return data
         except pickle.UnpicklingError as pe:
             log_error(f"Failed to deserialize game data: {str(pe)}")

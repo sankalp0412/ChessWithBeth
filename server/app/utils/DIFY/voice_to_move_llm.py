@@ -3,7 +3,7 @@ import json
 import os
 from dotenv import load_dotenv
 from fastapi import HTTPException
-from app.utils.error_handling import log_debug, log_success, ChessGameError
+from app.utils.error_handling import log_debug, log_success, log_error, ChessGameError
 
 load_dotenv()
 DIFY_API_KEY = os.getenv("DIFY_APP_API")
@@ -48,11 +48,11 @@ def voice_to_move(user_input: str, current_fen: str):
                 )
             except ValueError:
                 # If the response body isn't JSON or doesn't contain error details
+                log_error(f"Error in DIFY LLM API: {response.text}")
                 raise DifyServiceError(f"Error in DIFY LLM API: {response.text}")
 
         # If no error, proceed with the successful response
         json_response = response.json()
-        log_debug(f"JSON REsponse: {json_response}")
         llm_move = json_response["answer"]
         return llm_move
 
@@ -64,6 +64,7 @@ def voice_to_move(user_input: str, current_fen: str):
 
     except Exception as e:
         # Handle any other exceptions that are not related to the request
+        log_error(f"Error converting voice to move: {str(e)}")
         raise DifyServiceError(f"Error converting voice to move: {str(e)}")
 
 

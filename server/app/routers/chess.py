@@ -91,7 +91,6 @@ async def play_user_move(
         log_success(f"Game data from reds for id {game_id}: {game_data} ")
         # reconstruct game instance using the game_data
         game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
-        log_success(f"Game after recreation:{game}")
         # make move
         game.make_user_move(move_input.move)
 
@@ -131,7 +130,6 @@ async def play_user_move(
         redis_set_game_by_id(
             game_id=game_id, redis_client=redis_client, data=game.to_dict()
         )
-        log_success(f"Game state updated in redis")
 
         return {
             "message": "Move played",
@@ -170,12 +168,8 @@ def end_game(
             game_id=game_id, redis_client=redis_client
         )
 
-        log_success(
-            f"Game data from redis before playing user_move for id {game_id}: {game_data} "
-        )
         # reconstruct game instance using the game_data
         game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
-        log_success(f"Game after recreation:{game}")
 
         game.quit_game(engine_manager=engine_manager)
 
@@ -205,11 +199,8 @@ def undo_move(
         game_data = redis_get_game_data_by_id(
             game_id=game_id, redis_client=redis_client
         )
-
-        log_success(f"Game data from reds for id {game_id}: {game_data} ")
         # reconstruct game instance using the game_data
         game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
-        log_success(f"Game after recreation:{game}")
 
         fen_after_undo = game.undo_move()
 
@@ -218,7 +209,6 @@ def undo_move(
         redis_set_game_by_id(
             game_id=game_id, redis_client=redis_client, data=game.to_dict()
         )
-        log_success(f"Game state updated in redis after takeback")
 
         return {
             "message": "Move undone",
@@ -251,16 +241,13 @@ async def get_ai_analysis(
             game_id=game_id, redis_client=redis_client
         )
 
-        log_success(f"Game data from reds for id {game_id}: {game_data} ")
         # reconstruct game instance using the game_data
         game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
-        log_success(f"Game after recreation:{game}")
 
         # First get top moves:
         top_moves: List = await game.get_top_stockfish_moves()
         fen = game.get_fen()
         turn = game.board.turn
-        log_debug(f"Top Moves from stockfish = {top_moves}")
         analysis = run_ai_analysis(str(top_moves), fen, turn)
 
         return {
@@ -293,10 +280,8 @@ async def get_top_moves(
             game_id=game_id, redis_client=redis_client
         )
 
-        log_success(f"Game data from reds for id {game_id}: {game_data} ")
         # reconstruct game instance using the game_data
         game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
-        log_success(f"Game after recreation:{game}")
 
         top_moves: List = await game.get_top_stockfish_moves()
 
@@ -323,10 +308,8 @@ def voice_to_move_san(
             game_id=game_id, redis_client=redis_client
         )
 
-        log_success(f"Game data from reds for id {game_id}: {game_data} ")
         # reconstruct game instance using the game_data
         game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
-        log_success(f"Game after recreation:{game}")
 
         # Get current FEN
         current_fen = game.get_fen()
