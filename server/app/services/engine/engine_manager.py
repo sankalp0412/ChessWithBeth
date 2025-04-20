@@ -11,13 +11,17 @@ class EngineManagerError(ChessGameError):
     pass
 
 
-load_dotenv()
+if "DOCKER" not in os.environ:
+    load_dotenv()
 
-STOCKFISH_PATH = os.getenv("STOCKFISH_PATH")
+# Get the Stockfish path - prioritize environment variable
+STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH")
 
 if not STOCKFISH_PATH:
-    log_error("STOCKFISH_PATH is not set. Please check your .env file.")
-    raise EngineManagerError("STOCKFISH_PATH is not set. Please check your .env file.")
+    log_error("STOCKFISH_PATH is not set. Please check your environment.")
+    raise EngineManagerError(
+        "STOCKFISH_PATH is not set. Please check your environment."
+    )
 
 log_debug(f"STOCKFISH_PATH loaded: {STOCKFISH_PATH}")
 
