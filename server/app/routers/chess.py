@@ -28,7 +28,7 @@ from app.services.mongodb.mongo_services import (
     mongo_update_game_by_game_id,
     MongoServiceError,
 )
-
+from datetime import datetime
 from app.services.mongodb.models.mongo_models import Game
 
 chess_router = APIRouter()
@@ -98,9 +98,14 @@ async def play_user_move(
 
     try:
         redis_client = request.app.state.redis_client
+        mongo_client = request.app.state.mongo_client
         if not redis_client:
             log_error("Redis Connection Failed")
             raise HTTPException(status_code=500, detail="Redis Connection Failed")
+
+        if not mongo_client:
+            log_error("Mongo Connection Failed")
+            raise HTTPException(status_code=500, detail="Mongo Connection Failed")
 
         game_data = redis_get_game_data_by_id(
             game_id=game_id, redis_client=redis_client
@@ -118,6 +123,19 @@ async def play_user_move(
             # Game over after user move
             game.quit_game(engine_manager=engine_manager)
             redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
+
+            # Use dictionary instead of Game model
+            game_data_dict = {
+                "modified_at": datetime.now(),
+                "fen": game.get_fen(),
+                "is_over": True,
+                "win_color": "white",
+            }
+
+            result = await mongo_update_game_by_game_id(
+                game_id=game_id, mongo_client=mongo_client, update_data=game_data_dict
+            )
+
             return {
                 "message": "Game Over after user Move",
                 "user_move": move_input.move,
@@ -133,6 +151,19 @@ async def play_user_move(
             # Game over after engine move
             game.quit_game(engine_manager=engine_manager)
             redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
+
+            # Use dictionary instead of Game model
+            game_data_dict = {
+                "modified_at": datetime.now(),
+                "fen": game.get_fen(),
+                "is_over": True,
+                "win_color": "black",
+            }
+
+            result = await mongo_update_game_by_game_id(
+                game_id=game_id, mongo_client=mongo_client, update_data=game_data_dict
+            )
+
             return {
                 "message": "Game Over after Engine Move",
                 "user_move": move_input.move,
@@ -148,6 +179,16 @@ async def play_user_move(
         redis_set_game_by_id(
             game_id=game_id, redis_client=redis_client, data=game.to_dict()
         )
+        # Update in mongo using dictionary
+
+        game_data_dict = {
+            "modified_at": datetime.now(),
+            "fen": game.get_fen(),
+        }
+
+        result = await mongo_update_game_by_game_id(
+            game_id=game_id, mongo_client=mongo_client, update_data=game_data_dict
+        )
 
         return {
             "message": "Move played",
@@ -162,6 +203,7 @@ async def play_user_move(
         log_error(f"Redis operation failed:{str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     except ValueError as v:
+        log_error(f"Error while playing move: {v}")
         raise HTTPException(status_code=400, detail=f"Invalid or illegal move {v}")
     except Exception as e:
         log_error(f"Failed to play move: {e}")
@@ -169,7 +211,7 @@ async def play_user_move(
 
 
 @chess_router.post("/end_game/")
-def end_game(
+async def end_game(
     request: Request,
     game_id: str,
     engine_manager: EngineManager = Depends(get_engine_manager),
@@ -178,9 +220,14 @@ def end_game(
 
     try:
         redis_client = request.app.state.redis_client
+        mongo_client = request.app.state.mongo_client
         if not redis_client:
             log_error("Redis Connection Failed")
             raise HTTPException(status_code=500, detail="Redis Connection Failed")
+
+        if not mongo_client:
+            log_error("Mongo Connection Failed")
+            raise HTTPException(status_code=500, detail="Mongo Connection Failed")
 
         game_data = redis_get_game_data_by_id(
             game_id=game_id, redis_client=redis_client
@@ -193,6 +240,17 @@ def end_game(
 
         # delete game from redis
         message = redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
+
+        # Mark game over in mongo
+
+        result = await mongo_update_game_by_game_id(
+            game_id=game_id,
+            mongo_client=mongo_client,
+            update_data={
+                "is_over": True,
+                "modified_at": datetime.now(),
+            },
+        )
         return {"message": message}
 
     except RedisServiceError as re:
@@ -202,7 +260,7 @@ def end_game(
 
 
 @chess_router.post("/undo_move/")
-def undo_move(
+async def undo_move(
     request: Request,
     game_id: str,
     engine_manager: EngineManager = Depends(get_engine_manager),
@@ -210,9 +268,14 @@ def undo_move(
     """Undo the last move."""
     try:
         redis_client = request.app.state.redis_client
+        mongo_client = request.app.state.mongo_client
         if not redis_client:
             log_error("Redis Connection Failed")
             raise HTTPException(status_code=500, detail="Redis Connection Failed")
+
+        if not mongo_client:
+            log_error("Mongo Connection Failed")
+            raise HTTPException(status_code=500, detail="Mongo Connection Failed")
 
         game_data = redis_get_game_data_by_id(
             game_id=game_id, redis_client=redis_client
@@ -228,6 +291,16 @@ def undo_move(
             game_id=game_id, redis_client=redis_client, data=game.to_dict()
         )
 
+        # Update mongo
+
+        game_data_dict = {
+            "modified_at": datetime.now(),
+            "fen": game.get_fen(),
+        }
+
+        result = await mongo_update_game_by_game_id(
+            game_id=game_id, mongo_client=mongo_client, update_data=game_data_dict
+        )
         return {
             "message": "Move undone",
             "board_fen_after_undo": fen_after_undo,

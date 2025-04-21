@@ -39,7 +39,7 @@ async def mongo_create_game(mongo_client: AsyncIOMotorClient, data: Game):
 
 
 async def mongo_update_game_by_game_id(
-    game_id: str, mongo_client: AsyncIOMotorClient, update_data: Game
+    game_id: str, mongo_client: AsyncIOMotorClient, update_data: Game | dict
 ):
     try:
         if not update_data:
@@ -48,21 +48,32 @@ async def mongo_update_game_by_game_id(
         db = mongo_client[db_name]
         collection = db["games"]
 
+        # Process the update data based on type
+        if isinstance(update_data, Game):
+            # If it's a Game model, use the entire model
+            update_dict = update_data.model_dump(by_alias=True)
+            update_dict.pop("_id", None)
+
+            update_dict.pop("game_id", None)
+        else:
+            update_dict = update_data
+
+            if "_id" in update_dict:
+                update_dict.pop("_id", None)
+            if "game_id" in update_dict:
+                update_dict.pop("game_id", None)
+        if not update_dict:
+            raise MongoServiceError("No valid fields to update after processing")
+
         result = await collection.update_one(
             {"game_id": game_id},
-            {
-                "$set": (
-                    update_data.model_dump(by_alias=True)
-                    if isinstance(update_data, Game)
-                    else update_data
-                )
-            },
+            {"$set": update_dict},
         )
 
         if result.matched_count == 0:
             raise MongoServiceError(f"No game found with game_id: {game_id}")
 
-        log_success(f"Updated game with game_id: {game_id}")
+        log_success(f"Updated game with game_id in Mongo: {game_id}")
         return result
     except Exception as e:
         log_error(f"Error updating game with game_id: {game_id}: {e}")
