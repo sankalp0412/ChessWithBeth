@@ -23,7 +23,9 @@ async def get_mongo_client():
         host = os.getenv("MONGO_DB_HOST", "127.0.0.1")
         uri = f"mongodb+srv://{username}:{password}@{host}?retryWrites=true&w=majority&appName=Cluster-SD"
 
-        mongo_client = AsyncIOMotorClient(uri, server_api=ServerApi("1"))
+        mongo_client = AsyncIOMotorClient(
+            uri, server_api=ServerApi("1"), tlsAllowInvalidCertificates=True
+        )
         return mongo_client
     except Exception as e:
         log_error(f"Error while connecting to mongo db:{e}")

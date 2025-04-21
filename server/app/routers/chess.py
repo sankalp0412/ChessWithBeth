@@ -22,12 +22,20 @@ from app.services.engine.dependencies import get_engine_manager
 
 from app.utils.error_handling import log_error, log_success, ChessGameError, log_debug
 from app.utils.DIFY.ai_analysis_llm import run_ai_analysis
+from app.services.mongodb.mongo_services import (
+    mongo_create_game,
+    mongo_delete_game_by_game_id,
+    mongo_update_game_by_game_id,
+    MongoServiceError,
+)
+
+from app.services.mongodb.models.mongo_models import Game
 
 chess_router = APIRouter()
 
 
 @chess_router.post("/start_game/")
-def start_new_game(
+async def start_new_game(
     request: Request,
     user_elo: int | str,
     engine_manager: EngineManager = Depends(get_engine_manager),
@@ -35,9 +43,14 @@ def start_new_game(
     """Start a new chess game."""
 
     redis_client = request.app.state.redis_client
+    mongo_client = request.app.state.mongo_client
     if not redis_client:
         log_error("Redis Connection Failed")
         raise HTTPException(status_code=500, detail="Redis Connection Failed")
+
+    if not mongo_client:
+        log_error("Mongo Connection Failed")
+        raise HTTPException(status_code=500, detail="Mongo Connection Failed")
 
     # Create a new redis state and get the unique game id
     try:
@@ -51,6 +64,11 @@ def start_new_game(
             game_id=game_id, redis_client=redis_client, data=game.to_dict()
         )
         # game.reset()
+
+        # Add game in mongo
+        game_data = Game(game_id=game_id, user_elo=user_elo, fen=game.get_fen())
+        result = await mongo_create_game(mongo_client=mongo_client, data=game_data)
+
         return {
             "message": "New game started",
             "board_fen": game.get_fen(),
