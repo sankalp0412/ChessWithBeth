@@ -30,7 +30,7 @@ services:
     ports:
       - "5173:5173"
     env_file:
-      ./.env
+      ./Frontend/project/.env
     volumes:
       - ./Frontend/project:/app
       - /app/node_modules
