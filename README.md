@@ -51,6 +51,10 @@ It makes chess more accessible and engaging while providing real-time position a
 <img width="1371" alt="image" src="https://github.com/user-attachments/assets/7af388fd-84f9-4b3e-98dd-5551a5b9be13" />
 
 
+<img width="1406" alt="image" src="https://github.com/user-attachments/assets/3b1f22da-87f6-4265-a6b3-cf18e2c2c2fe" />
+
+
+
 
 
 
