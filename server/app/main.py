@@ -5,6 +5,7 @@ from app.services.redis.redis_setup import get_redis_client
 from contextlib import asynccontextmanager
 from app.utils.error_handling import log_success, log_error
 from app.services.engine.engine_manager import EngineManager
+from app.services.mongodb.mongo_setup import get_mongo_client
 
 # app = FastAPI()
 
@@ -26,11 +27,23 @@ async def lifespan(app: FastAPI):
     app.state.engine_manager = EngineManager()
     log_success("EngineManager initialized.")
 
+    # Mongo client
+    try:
+        app.state.mongo_client = await get_mongo_client()
+        mongo_client = app.state.mongo_client
+        if mongo_client is not None:
+            mongo_client.admin.command("ping")
+        log_success("Pinged your deployment. You successfully connected to MongoDB!")
+    except Exception as e:
+        log_error(f"Error while connecting to mongo client:{e}")
+
     yield
 
     app.state.redis_client.close()
     app.state.engine_manager.clean_up()
+    app.state.mongo_client.close()
     log_success("Redis disconnected.")
+    log_success("Mongo Client closed")
     log_success("Engine Manager Closed, All Stockfish instances closed")
 
 
