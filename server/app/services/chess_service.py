@@ -1,20 +1,28 @@
 import os
+from datetime import datetime
+import asyncio
 import chess
 import chess.engine
 from chess.engine import AnalysisResult, AnalysisComplete
 from stockfish import Stockfish, StockfishException
 import random
 from fastapi import Request
-from app.services.redis.redis_services import redis_get_game_data_by_id
-from app.services.redis.redis_setup import get_redis_client
+from app.services.redis.redis_services import (
+    redis_delete_game_by_id,
+    redis_get_game_data_by_id,
+)
 from app.services.engine.engine_manager import EngineManager, EngineManagerError
 from app.utils.error_handling import log_error, log_success, ChessGameError, log_debug
 from chess import InvalidMoveError, Move
 from typing import List
 from dotenv import load_dotenv
+import redis
+from motor.motor_asyncio import AsyncIOMotorClient
+from app.services.mongodb.mongo_services import (
+    mongo_get_stale_game_ids,
+    mongo_update_game_by_game_id,
+)
 
-
-redis_client = get_redis_client()
 load_dotenv()
 
 
@@ -209,3 +217,41 @@ def create_and_get_new_chess_game(
     return ChessGame(
         game_id=game_id, elo_level=elo_level, engine_manager=engine_manager
     )
+
+
+async def close_stale_games(
+    app, mongo_client: AsyncIOMotorClient, redis_client: redis.Redis, engine_manager
+):
+    while True:
+        try:
+            log_debug("Running Stale Game Removal Service....")
+            stale_game_ids: List[str] = await mongo_get_stale_game_ids(
+                mongo_client=mongo_client
+            )
+            for game_id in stale_game_ids:
+                game: ChessGame = ChessGame.from_dict(
+                    redis_get_game_data_by_id(
+                        game_id=game_id, redis_client=redis_client
+                    ),
+                    engine_manager=engine_manager,
+                )
+
+                # Free the engine instance
+                game.quit_game(engine_manager=engine_manager)
+                # delte from redis
+                redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
+                # Mark game as over in mongo
+                result = await mongo_update_game_by_game_id(
+                    game_id=game_id,
+                    mongo_client=mongo_client,
+                    update_data={
+                        "is_over": True,
+                        "modified_at": datetime.now(),
+                    },
+                )
+                log_success(
+                    f"Removed stale game engine instance for game_id: {game_id}"
+                )
+        except Exception as e:
+            log_error(f"Error while removing stale games: {e}")
+        await asyncio.sleep(1800)  # Every half hour

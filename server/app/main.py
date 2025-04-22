@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers.chess import chess_router
@@ -6,7 +7,11 @@ from contextlib import asynccontextmanager
 from app.utils.error_handling import log_success, log_error
 from app.services.engine.engine_manager import EngineManager
 from app.services.mongodb.mongo_setup import get_mongo_client
+import os
+from dotenv import load_dotenv
+from app.services.chess_service import close_stale_games
 
+load_dotenv()
 # app = FastAPI()
 
 
@@ -16,8 +21,9 @@ async def lifespan(app: FastAPI):
 
     # Initialize Redis client as centralized state
     app.state.redis_client = get_redis_client()
+    redis_client = app.state.redis_client
     try:
-        pong = app.state.redis_client.ping()
+        pong = redis_client.ping()
         if pong:
             log_success("Redis connected.")
     except Exception as e:
@@ -33,9 +39,19 @@ async def lifespan(app: FastAPI):
         mongo_client = app.state.mongo_client
         if mongo_client is not None:
             mongo_client.admin.command("ping")
-        log_success("Pinged your deployment. You successfully connected to MongoDB!")
+        log_success("Mongo Client connected. Ping Successfull.")
     except Exception as e:
         log_error(f"Error while connecting to mongo client:{e}")
+
+    # Service to remove stale games :
+    app.state.stale_tasl = asyncio.create_task(
+        close_stale_games(
+            app,
+            mongo_client=mongo_client,
+            redis_client=app.state.redis_client,
+            engine_manager=app.state.engine_manager,
+        )
+    )
 
     yield
 
@@ -52,7 +68,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Frontend URL
+    allow_origins=[os.getenv("VITE_URL")],  # Frontend URL
     allow_credentials=True,
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
