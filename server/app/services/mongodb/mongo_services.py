@@ -2,10 +2,11 @@ from app.utils.error_handling import log_debug, log_success, log_error, ChessGam
 import asyncio
 from app.services.mongodb.models.mongo_models import Game
 from fastapi import HTTPException
-from pymongo import InsertOne, DeleteOne, ReplaceOne
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.services.mongodb.mongo_setup import get_mongo_client
-from datetime import datetime
+from datetime import datetime, timedelta
+import redis
+from typing import List
 
 db_name = "chess-with-beth"
 
@@ -92,3 +93,32 @@ async def mongo_delete_game_by_game_id(game_id: str, mongo_client: AsyncIOMotorC
     except Exception as e:
         log_error(f"Error while delete game with game_id : {game_id}")
         raise MongoServiceError(f"Error while delete game with game_id : {game_id}")
+
+
+async def mongo_get_stale_game_ids(mongo_client: AsyncIOMotorClient) -> List[str]:
+    """Returns game ids of the games that have been inactive for at least an hour"""
+
+    try:
+        db = mongo_client[db_name]
+        collection = db["games"]
+
+        one_hour_ago = datetime.now() - timedelta(hours=0.5)
+        query = {"modified_at": {"$lt": one_hour_ago}, "is_over": False}
+        results = await collection.find(query).to_list(length=None)
+        stale_game_ids = [game["game_id"] for game in results]
+        return stale_game_ids
+
+    except Exception as e:
+        log_error(f"Error while fetching stale games :{e}")
+        raise MongoServiceError(f"Error while fetching stale games:{e}")
+
+
+if __name__ == "__main__":
+
+    async def test():
+        mc = await get_mongo_client()
+        res = await mongo_get_stale_game_ids(mongo_client=mc)
+
+        print(res)
+
+    asyncio.run(test())
