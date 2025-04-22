@@ -64,7 +64,7 @@ class EngineManager:
                 {
                     "UCI_LimitStrength": True,
                     "UCI_Elo": elo_level,
-                    "Hash": 1024,
+                    "Hash": 32,
                 }
             )
             return engine
