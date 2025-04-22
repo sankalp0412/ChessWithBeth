@@ -110,8 +110,6 @@ async def play_user_move(
         game_data = redis_get_game_data_by_id(
             game_id=game_id, redis_client=redis_client
         )
-
-        log_success(f"Game data from reds for id {game_id}: {game_data} ")
         # reconstruct game instance using the game_data
         game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
         # make move
