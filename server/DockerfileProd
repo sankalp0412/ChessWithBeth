@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y \
     && git clone https://github.com/official-stockfish/Stockfish.git /opt/Stockfish \
     && cd /opt/Stockfish/src \
     && make help \
-    && make build ARCH=armv8 \
+    && make build ARCH=x86-64 \
     && cp ./stockfish /opt/stockfish \
     && cd / \
     && rm -rf /opt/Stockfish \
