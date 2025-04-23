@@ -149,7 +149,7 @@ class ChessGame:
             ) as analysis:
                 top_moves = []
                 seen_moves = set()  # Track unique moves
-                analysis.wait()  # Let the analysis finish
+                # analysis.wait()  # Let the analysis finish
 
                 for info in analysis:
                     if "pv" in info and len(top_moves) < n:
@@ -169,7 +169,7 @@ class ChessGame:
                             )
                         if len(top_moves) >= n:
                             break
-
+                log_success(f"Top Moves: {top_moves}")
                 return top_moves
         except Exception as e:
             log_error(f"Error while fetching top moves:{e}")
