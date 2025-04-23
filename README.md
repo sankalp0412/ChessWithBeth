@@ -1,9 +1,9 @@
 # Chess with Beth
 
 ## About
-Chess with Beth is an interactive chess platform that combines voice command functionality with an AI chess assistant named Beth. Inspired by "The Queen's Gambit," this project makes chess more accessible and engaging while providing real-time position analysis and advice from an AI chess master.
+Chess with Beth is an interactive chess platform that combines voice command functionality with an AI chess assistant named Beth. Inspired by "The Queen's Gambit," this project introduces us to an AI assistant "Beth", named after the the chess prodigy protagonist Beth Harmon.
 
-The AI assistant "Beth" is named after Beth Harmon, the chess prodigy protagonist from the Netflix series "The Queen's Gambit." Just like the fictional Beth Harmon, our AI assistant analyzes chess positions with remarkable skill and offers grandmaster-level advice.
+It makes chess more accessible and engaging while providing real-time position analysis and advice from an AI chess master. Just like the fictional Beth Harmon, our AI assistant analyzes chess positions with remarkable skill and offers grandmaster-level advice.
 
 ## Try It Out
 [Checkout the project](https://chess-with-beth.vercel.app/) ♟️ 🚀
@@ -49,6 +49,10 @@ The AI assistant "Beth" is named after Beth Harmon, the chess prodigy protagonis
 
 
 <img width="1371" alt="image" src="https://github.com/user-attachments/assets/7af388fd-84f9-4b3e-98dd-5551a5b9be13" />
+
+
+<img width="1406" alt="image" src="https://github.com/user-attachments/assets/3b1f22da-87f6-4265-a6b3-cf18e2c2c2fe" />
+
 
 
 
