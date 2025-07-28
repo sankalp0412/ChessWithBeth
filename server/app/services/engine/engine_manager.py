@@ -1,3 +1,4 @@
+# flake8: noqa
 import chess.engine
 from chess.engine import EngineError, EngineTerminatedError
 from app.utils.error_handling import log_debug, log_success, log_error, ChessGameError
@@ -5,6 +6,8 @@ from typing import Dict
 import os
 from dotenv import load_dotenv
 from fastapi import HTTPException
+import asyncio
+import bisect
 
 
 class EngineManagerError(ChessGameError):
@@ -102,9 +105,99 @@ class EngineManager:
                 log_error(f"Error cleaning up engine for Game ID {game_id}: {e}")
 
 
+# Centralized engine class
+
+
+class StockfishEngine:
+    # This will hold the single instance of the class
+    _instance = None
+    _skill_elo_map = [
+        {"skill": "0", "elo": "1347"},
+        {"skill": "1", "elo": "1490"},
+        {"skill": "2", "elo": "1597"},
+        {"skill": "3", "elo": "1694"},
+        {"skill": "4", "elo": "1785"},
+        {"skill": "5", "elo": "1871"},
+        {"skill": "6", "elo": "1954"},
+        {"skill": "7", "elo": "2035"},
+        {"skill": "8", "elo": "2113"},
+        {"skill": "9", "elo": "2189"},
+        {"skill": "10", "elo": "2264"},
+        {"skill": "11", "elo": "2337"},
+        {"skill": "12", "elo": "2409"},
+        {"skill": "13", "elo": "2480"},
+        {"skill": "14", "elo": "2550"},
+        {"skill": "15", "elo": "2619"},
+        {"skill": "16", "elo": "2686"},
+        {"skill": "17", "elo": "2754"},
+        {"skill": "18", "elo": "2820"},
+        {"skill": "19", "elo": "2886"},
+    ]
+
+    def __new__(cls):
+        if not cls._instance:
+            cls._instance = super(StockfishEngine, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+
+        if hasattr(self, "_initialized") and self._initialized:
+            return
+
+        try:
+            self.engine: chess.engine.SimpleEngine = (
+                chess.engine.SimpleEngine.popen_uci(STOCKFISH_PATH)
+            )
+            self.engine.configure(
+                {
+                    "Hash": 128,
+                }
+            )
+            log_success(f"Stockfish central engine initialized:{self.engine}")
+        except EngineError as ee:
+            log_error(f"Error creating engine: {ee}")
+            raise EngineManagerError(f"Error initializing engine: {ee}")
+
+    def quit_engine(self):
+        if hasattr(self, "engine") and self.engine is not None:
+            try:
+                self.engine.quit()
+                self.engine = None
+                self._initialized = False
+                log_success("Stockfish engine successfully shut down.")
+            except Exception as e:
+                raise EngineManagerError(f"Error while quitting Stockfish engine: {e}")
+
+    def get_engine_move(self, board: chess.Board, user_elo: str):
+        """Get stockfish engine move for the current board and given elo strength"""
+        user_elo_int = int(user_elo)
+        idx = bisect.bisect_left(
+            [int(item["elo"]) for item in self._skill_elo_map], user_elo_int
+        )
+
+        stockfish_skill = self._skill_elo_map[idx]["skill"]
+
+        result = self.engine.play(
+            board=board,
+            limit=chess.engine.Limit(time=2),
+            options={
+                "UCI_LimitStrength": True,
+                "Skill Level": stockfish_skill,
+            },
+        )
+
+        return result
+
+    def get_optimal_moves(self):
+        pass
+
+
 if __name__ == "__main__":
-    em = EngineManager()
-    em.clean_up()
-    em.create_or_get_engine(game_id="123", elo_level=1400)
-    log_debug(em._engine_map.get("123").options.get("UCI_Elo"))
-    em.clean_up()
+    se = StockfishEngine()
+
+    # print(se.engine.options.get("UCI_Elo"))
+    # print(se._skill_elo_map)
+    board = chess.Board()
+    em = se.get_engine_move(board=board, user_elo="2000")
+    print(em)
+    se.quit_engine()
