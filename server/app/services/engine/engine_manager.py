@@ -1,6 +1,6 @@
 # flake8: noqa
 import chess.engine
-from chess.engine import EngineError, EngineTerminatedError
+from chess.engine import EngineError, EngineTerminatedError, PlayResult
 from app.utils.error_handling import log_debug, log_success, log_error, ChessGameError
 from typing import Dict
 import os
@@ -153,6 +153,7 @@ class StockfishEngine:
                     "Hash": 128,
                 }
             )
+            self._initialized = True
             log_success(f"Stockfish central engine initialized:{self.engine}")
         except EngineError as ee:
             log_error(f"Error creating engine: {ee}")
@@ -168,7 +169,7 @@ class StockfishEngine:
             except Exception as e:
                 raise EngineManagerError(f"Error while quitting Stockfish engine: {e}")
 
-    def get_engine_move(self, board: chess.Board, user_elo: str):
+    def get_engine_move(self, board: chess.Board, user_elo: str | int) -> PlayResult:
         """Get stockfish engine move for the current board and given elo strength"""
         user_elo_int = int(user_elo)
         idx = bisect.bisect_left(
@@ -188,7 +189,7 @@ class StockfishEngine:
 
         return result
 
-    def get_optimal_moves(self):
+    def get_top_stockfish_moves(self, board: chess.Board):
         pass
 
 
