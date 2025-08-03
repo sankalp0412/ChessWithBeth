@@ -12,8 +12,10 @@ from app.services.redis.redis_services import (
     redis_delete_game_by_id,
     redis_get_game_data_by_id,
 )
-from app.Domains.Engine.engine_manager import EngineManager, EngineManagerError
+from app.Domains.Engine.engine_manager import EngineError, StockfishEngine
+from app.Domains.Engine.models import TopStockfishMoves
 from app.utils.error_handling import log_error, log_success, ChessGameError, log_debug
+from app.Domains.Game.models import EngineMoveResult
 from chess import InvalidMoveError, Move
 from typing import List
 from dotenv import load_dotenv
@@ -34,25 +36,16 @@ class ChessServiceError(ChessGameError):
 class ChessGame:
     """Handles the game state and Stockfish engine."""
 
-    def __init__(
-        self, game_id: str, engine_manager: EngineManager, elo_level: str | int
-    ):
+    def __init__(self, game_id: str, elo_level: str | int):
         try:
-            self.engine = engine_manager.create_or_get_engine(
-                game_id=game_id, elo_level=elo_level
-            )
+
             self.board = chess.Board()
             self.move_stack = (
                 []
             )  # Required to recreate board move by move for the undo functionality
             self.elo_level = elo_level
             self.game_id = game_id
-            log_success(
-                f"Chess Game instances created for game ID: {game_id} and Engine initialized Successfully : {self.engine}, with elo_level: {self.elo_level}"
-            )
-        except EngineManagerError as eme:
-            log_error(f"EngineManagerError while initializing chess game: {str(eme)}")
-            raise ChessServiceError(f"EngineManagerError: {str(eme)}")
+            log_success(f"Chess Game instances created for game ID: {game_id} ")
 
         except Exception as e:
             log_error(f"Failed to initialize chess game: {str(e)}")
@@ -68,11 +61,10 @@ class ChessGame:
         }
 
     @classmethod
-    def from_dict(cls, data, engine_manager: EngineManager):
+    def from_dict(cls, data):
         try:
             game = cls(
                 data["game_id"],
-                engine_manager=engine_manager,
                 elo_level=data["elo_level"],
             )
             game.set_board_from_fen(data["fen"], data["move_stack"])
@@ -109,13 +101,13 @@ class ChessGame:
             log_error(f"Error playing user move: {e}")
             raise ChessServiceError(f"Error playing user move: {e}")
 
-    async def get_engine_move(self):
+    async def get_engine_move(self, engine: StockfishEngine) -> EngineMoveResult:
         """Gets Stockfish's best move and applies it."""
         # Check if game is over after user move
         if self.board.is_game_over():
             return None, None, None
         try:
-            result = self.engine.play(self.board, chess.engine.Limit(time=2))
+            result = engine.get_engine_move(board=self.board, user_elo=self.elo_level)
             engine_move = result.move.uci()
             # Make move in board
             move = chess.Move.from_uci(engine_move)  # this move is a Move object
@@ -137,43 +129,15 @@ class ChessGame:
             log_error(f"Engine Error: {e}")
             raise ChessServiceError(f"Engine Error: {e}")
 
-    async def get_top_stockfish_moves(self):
+    async def get_top_stockfish_moves(
+        self, engine: StockfishEngine
+    ) -> TopStockfishMoves:
         """Get top moves using the engine analysis."""
         try:
             if self.is_game_over():
                 return []
-            n = min(3, len(list(self.board.legal_moves)))
-
-            # top_moves = newEngineManager.get_top_stockfish_moves() add this after new engine functionality
-            with self.engine.analysis(
-                board=self.board,
-                options={"UCI_Elo": 3000},  # Use full engine strength for analysis
-                limit=chess.engine.Limit(depth=25),
-            ) as analysis:
-                top_moves = []
-                seen_moves = set()  # Track unique moves
-                # analysis.wait()  # Let the analysis finish
-
-                for info in analysis:
-                    if "pv" in info and len(top_moves) < n:
-                        move = info["pv"][0]
-                        if move.uci() not in seen_moves:  # Check for duplicates
-                            seen_moves.add(move.uci())  # Add to the set
-                            score = info["score"].relative
-                            top_moves.append(
-                                {
-                                    "move": move.uci(),
-                                    "score": (
-                                        score.score() / 100
-                                        if not score.is_mate()
-                                        else f"Mate in {score.mate()}"
-                                    ),
-                                }
-                            )
-                        if len(top_moves) >= n:
-                            break
-                log_success(f"Top Moves: {top_moves}")
-                return top_moves
+            top_moves = engine.get_top_stockfish_moves(board=self.board)
+            return top_moves
         except Exception as e:
             log_error(f"Error while fetching top moves:{e}")
             raise ChessServiceError(f"Error while fetching top moves:{e}")
@@ -191,9 +155,6 @@ class ChessGame:
             raise ChessServiceError(
                 f"Index error while takeback , move Stack empty:{i}"
             )
-        except StockfishException as s:
-            log_error(f"Stockfish Exception while takeback : {s}")
-            raise ChessServiceError(f"Stockfish Exception while takeback : {s}")
 
     def get_fen(self):
         """Returns the board state in FEN notation."""
@@ -203,25 +164,19 @@ class ChessGame:
         """Checks if the game is over."""
         return self.board.is_game_over()
 
-    def quit_game(self, engine_manager: EngineManager):
-        """Stops the Stockfish engine."""
-        # remove game from engine manger
-        engine_manager.close_engine_by_id(game_id=self.game_id)
+    def quit_game(self):
+        """Resets the board"""
         # reset board state
         self.board = chess.Board()
 
 
 # Dependency Injection to provide a game instance
-def create_and_get_new_chess_game(
-    game_id: str, elo_level: str | int, engine_manager: EngineManager
-) -> ChessGame:
-    return ChessGame(
-        game_id=game_id, elo_level=elo_level, engine_manager=engine_manager
-    )
+def create_and_get_new_chess_game(game_id: str, elo_level: str | int) -> ChessGame:
+    return ChessGame(game_id=game_id, elo_level=elo_level)
 
 
 async def close_stale_games(
-    app, mongo_client: AsyncIOMotorClient, redis_client: redis.Redis, engine_manager
+    app, mongo_client: AsyncIOMotorClient, redis_client: redis.Redis
 ):
     while True:
         try:
@@ -234,11 +189,10 @@ async def close_stale_games(
                     redis_get_game_data_by_id(
                         game_id=game_id, redis_client=redis_client
                     ),
-                    engine_manager=engine_manager,
                 )
 
                 # Free the engine instance
-                game.quit_game(engine_manager=engine_manager)
+                game.quit_game()
                 # delte from redis
                 redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
                 # Mark game as over in mongo

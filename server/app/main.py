@@ -5,11 +5,11 @@ from app.routers.chess import chess_router
 from app.services.redis.redis_setup import get_redis_client
 from contextlib import asynccontextmanager
 from app.utils.error_handling import log_success, log_error
-from app.Domains.Engine.engine_manager import EngineManager
+from app.Domains.Engine.engine_manager import StockfishEngine
 from app.services.mongodb.mongo_setup import get_mongo_client
 import os
 from dotenv import load_dotenv
-from app.services.chess_service import close_stale_games
+from app.Domains.Game.chess_game import close_stale_games
 
 load_dotenv()
 # app = FastAPI()
@@ -29,9 +29,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         log_error(f"Error connecting to Redis: {e}")
 
-    # Engine Manager
-    app.state.engine_manager = EngineManager()
-    log_success("EngineManager initialized.")
+    # Engine
+    app.state.stockfish_engine = StockfishEngine()
+    log_success("Stockfish Engine initialized.")
 
     # Mongo client
     try:
@@ -49,18 +49,17 @@ async def lifespan(app: FastAPI):
             app,
             mongo_client=mongo_client,
             redis_client=app.state.redis_client,
-            engine_manager=app.state.engine_manager,
         )
     )
 
     yield
 
     app.state.redis_client.close()
-    app.state.engine_manager.clean_up()
     app.state.mongo_client.close()
-    log_success("Redis disconnected.")
-    log_success("Mongo Client closed")
-    log_success("Engine Manager Closed, All Stockfish instances closed")
+    app.state.stockfish_engine.quit_engine()
+    log_success("Redis Client Service disconnected.")
+    log_success("Mongo Client Service closed")
+    log_success("Stockfish Engine Service closed")
 
 
 app = FastAPI(lifespan=lifespan)

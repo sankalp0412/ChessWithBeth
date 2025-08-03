@@ -19,7 +19,7 @@ from app.utils.error_handling import log_debug, log_success, log_error, ChessGam
 from app.Domains.Engine.models import TopStockfishMoves
 
 
-class EngineManagerError(ChessGameError):
+class EngineError(ChessGameError):
     pass
 
 
@@ -31,88 +31,9 @@ STOCKFISH_PATH = os.environ.get("STOCKFISH_PATH")
 
 if not STOCKFISH_PATH:
     log_error("STOCKFISH_PATH is not set. Please check your environment.")
-    raise EngineManagerError(
-        "STOCKFISH_PATH is not set. Please check your environment."
-    )
+    raise EngineError("STOCKFISH_PATH is not set. Please check your environment.")
 
 log_debug(f"STOCKFISH_PATH loaded: {STOCKFISH_PATH}")
-
-
-class EngineManager:
-
-    _engine_map: Dict[str, chess.engine.SimpleEngine] = {}
-
-    def __init__(self):
-        pass
-
-    def create_or_get_engine(
-        self, game_id: str, elo_level: str | int
-    ) -> chess.engine.SimpleEngine:
-        try:
-            if game_id not in self._engine_map:
-                self._engine_map[game_id] = self.create_engine(elo_level)
-                log_success(f"Created new engine instance for game_id:{game_id}")
-            else:
-                log_success(f"Engine Instance already present for game_id : {game_id}")
-            return self._engine_map[game_id]
-        except EngineError as ee:
-            log_error(f"Engine Error while initializing for Game ID : {game_id} : {ee}")
-            raise EngineManagerError(
-                f"Engine Error while initializing for Game ID : {game_id} : {ee}"
-            )
-        except Exception as e:
-            log_error(f" Error while initializing for Game ID : {game_id} : {e}")
-            raise EngineManagerError(
-                f" Error while initializing for Game ID : {game_id} : {e}"
-            )
-
-    def create_engine(self, elo_level: str | int) -> chess.engine.SimpleEngine:
-        """Creates a new instance of the chess engine."""
-        try:
-            engine: chess.engine.SimpleEngine = chess.engine.SimpleEngine.popen_uci(
-                STOCKFISH_PATH
-            )
-            engine.configure(
-                {
-                    "UCI_LimitStrength": True,
-                    "UCI_Elo": elo_level,
-                    "Hash": 32,
-                }
-            )
-            return engine
-        except EngineError as ee:
-            log_error(f"Error creating engine: {ee}")
-            raise EngineManagerError(f"Error creating engine: {ee}")
-
-    def close_engine_by_id(self, game_id: str):
-        """Closes the engine associated with a given game ID."""
-        engine = self._engine_map.get(game_id)
-        if engine:
-            try:
-                engine.quit()
-                del self._engine_map[game_id]
-                log_success(f"Engine for Game ID {game_id} closed successfully.")
-            except EngineTerminatedError:
-                log_error(f"Engine for Game ID {game_id} already terminated.")
-            except Exception as e:
-                log_error(f"Error closing engine for Game ID {game_id}: {e}")
-        else:
-            log_error(f"No engine found for Game ID {game_id}.")
-
-    def clean_up(self):
-        """Cleans up all engines by closing them."""
-        for game_id, engine in list(self._engine_map.items()):
-            try:
-                engine.quit()
-                del self._engine_map[game_id]
-                log_success(f"Engine for Game ID {game_id} closed during cleanup.")
-            except EngineTerminatedError:
-                log_error(
-                    f"Engine for Game ID {game_id} already terminated during cleanup."
-                )
-            except Exception as e:
-                log_error(f"Error cleaning up engine for Game ID {game_id}: {e}")
-
 
 # Centralized engine class
 
@@ -166,7 +87,7 @@ class StockfishEngine:
             log_success(f"Stockfish central engine initialized:{self.engine}")
         except EngineError as ee:
             log_error(f"Error creating engine: {ee}")
-            raise EngineManagerError(f"Error initializing engine: {ee}")
+            raise EngineError(f"Error initializing engine: {ee}")
 
     def quit_engine(self):
         if hasattr(self, "engine") and self.engine is not None:
@@ -176,7 +97,7 @@ class StockfishEngine:
                 self._initialized = False
                 log_success("Stockfish engine successfully shut down.")
             except Exception as e:
-                raise EngineManagerError(f"Error while quitting Stockfish engine: {e}")
+                raise EngineError(f"Error while quitting Stockfish engine: {e}")
 
     def get_engine_move(self, board: chess.Board, user_elo: str | int) -> PlayResult:
         """Get stockfish engine move for the current board and given elo strength"""
@@ -204,25 +125,27 @@ class StockfishEngine:
             3, len(list(board.legal_moves))
         )  # number of moves to return back for AI analysis
         log_debug(f"Number of moves analysing = {n}")
-        possible_moves: list[InfoDict] = self.engine.analyse(
-            board=board,
-            limit=chess.engine.Limit(time=3.0),
-            options={"UCI_Elo": 3000},
-            multipv=n,
-        )
-
-        for p_move in possible_moves:
-            move = p_move["pv"][0].uci()
-            abs_score: Score = p_move[
-                "score"
-            ].white()  # evalutation always from whites perspective
-            score = (
-                abs_score.score() / 100
-                if not abs_score.is_mate()
-                else f"Mate in {abs_score.mate()}"
+        try:
+            possible_moves: list[InfoDict] = self.engine.analyse(
+                board=board,
+                limit=chess.engine.Limit(time=3.0),
+                options={"UCI_Elo": 3000},
+                multipv=n,
             )
-            top_moves.append({"move": move, "score": str(score)})
 
+            for p_move in possible_moves:
+                move = p_move["pv"][0].uci()
+                abs_score: Score = p_move[
+                    "score"
+                ].white()  # evalutation always from whites perspective
+                score = (
+                    abs_score.score() / 100
+                    if not abs_score.is_mate()
+                    else f"Mate in {abs_score.mate()}"
+                )
+                top_moves.append({"move": move, "score": str(score)})
+        except Exception as e:
+            raise EngineError(f"Error while getting top moves from stockfish:{e}")
         # sort temp moves in the order of decreasing score
         top_moves.sort(key=lambda x: x["score"], reverse=True)
         return top_moves
@@ -234,9 +157,6 @@ if __name__ == "__main__":
     board = chess.Board(
         fen="r2qkbnr/pp2pppp/n2p2b1/2p5/Q3P3/2P2NP1/PP1P1P1P/RNB1KB1R b KQkq - 2 6"
     )
-    # board = chess.Board(
-    #     fen="r2k1bnr/p2Bppp1/Q2p2b1/2p4p/3NP3/2P3P1/PP1P1P1P/RNB1K2R w KQ - 0 11"
-    # )
     em = se.get_engine_move(board=board, user_elo="2000")
     top_moves = se.get_top_stockfish_moves(board)
     log_debug(f"Top Moves:{top_moves}")
