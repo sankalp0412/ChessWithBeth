@@ -5,7 +5,7 @@ from app.routers.chess import chess_router
 from app.services.redis.redis_setup import get_redis_client
 from contextlib import asynccontextmanager
 from app.utils.error_handling import log_success, log_error
-from app.services.engine.engine_manager import EngineManager
+from app.Domains.Engine.engine_manager import EngineManager
 from app.services.mongodb.mongo_setup import get_mongo_client
 import os
 from dotenv import load_dotenv

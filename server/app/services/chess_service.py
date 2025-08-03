@@ -1,3 +1,4 @@
+# flake8: noqa
 import os
 from datetime import datetime
 import asyncio
@@ -11,7 +12,7 @@ from app.services.redis.redis_services import (
     redis_delete_game_by_id,
     redis_get_game_data_by_id,
 )
-from app.services.engine.engine_manager import EngineManager, EngineManagerError
+from app.Domains.Engine.engine_manager import EngineManager, EngineManagerError
 from app.utils.error_handling import log_error, log_success, ChessGameError, log_debug
 from chess import InvalidMoveError, Move
 from typing import List
@@ -142,6 +143,8 @@ class ChessGame:
             if self.is_game_over():
                 return []
             n = min(3, len(list(self.board.legal_moves)))
+
+            # top_moves = newEngineManager.get_top_stockfish_moves() add this after new engine functionality
             with self.engine.analysis(
                 board=self.board,
                 options={"UCI_Elo": 3000},  # Use full engine strength for analysis
@@ -174,8 +177,6 @@ class ChessGame:
         except Exception as e:
             log_error(f"Error while fetching top moves:{e}")
             raise ChessServiceError(f"Error while fetching top moves:{e}")
-        except AnalysisComplete as ac:
-            log_debug(f"Analysis completed for best move")
 
     def undo_move(self):
         """Undo the last move."""

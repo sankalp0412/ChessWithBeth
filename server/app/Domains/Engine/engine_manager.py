@@ -1,13 +1,22 @@
 # flake8: noqa
-import chess.engine
-from chess.engine import EngineError, EngineTerminatedError, PlayResult
-from app.utils.error_handling import log_debug, log_success, log_error, ChessGameError
-from typing import Dict
 import os
-from dotenv import load_dotenv
-from fastapi import HTTPException
 import asyncio
 import bisect
+import chess.engine
+from chess.engine import (
+    EngineError,
+    EngineTerminatedError,
+    PlayResult,
+    InfoDict,
+    Cp,
+    Mate,
+    Score,
+)
+from typing import Dict
+from dotenv import load_dotenv
+from fastapi import HTTPException
+from app.utils.error_handling import log_debug, log_success, log_error, ChessGameError
+from app.Domains.Engine.models import TopStockfishMoves
 
 
 class EngineManagerError(ChessGameError):
@@ -189,16 +198,46 @@ class StockfishEngine:
 
         return result
 
-    def get_top_stockfish_moves(self, board: chess.Board):
-        pass
+    def get_top_stockfish_moves(self, board: chess.Board) -> list[TopStockfishMoves]:
+        top_moves = []
+        n = min(
+            3, len(list(board.legal_moves))
+        )  # number of moves to return back for AI analysis
+        log_debug(f"Number of moves analysing = {n}")
+        possible_moves: list[InfoDict] = self.engine.analyse(
+            board=board,
+            limit=chess.engine.Limit(time=3.0),
+            options={"UCI_Elo": 3000},
+            multipv=n,
+        )
+
+        for p_move in possible_moves:
+            move = p_move["pv"][0].uci()
+            abs_score: Score = p_move[
+                "score"
+            ].white()  # evalutation always from whites perspective
+            score = (
+                abs_score.score() / 100
+                if not abs_score.is_mate()
+                else f"Mate in {abs_score.mate()}"
+            )
+            top_moves.append({"move": move, "score": str(score)})
+
+        # sort temp moves in the order of decreasing score
+        top_moves.sort(key=lambda x: x["score"], reverse=True)
+        return top_moves
 
 
 if __name__ == "__main__":
     se = StockfishEngine()
 
-    # print(se.engine.options.get("UCI_Elo"))
-    # print(se._skill_elo_map)
-    board = chess.Board()
+    board = chess.Board(
+        fen="r2qkbnr/pp2pppp/n2p2b1/2p5/Q3P3/2P2NP1/PP1P1P1P/RNB1KB1R b KQkq - 2 6"
+    )
+    # board = chess.Board(
+    #     fen="r2k1bnr/p2Bppp1/Q2p2b1/2p4p/3NP3/2P3P1/PP1P1P1P/RNB1K2R w KQ - 0 11"
+    # )
     em = se.get_engine_move(board=board, user_elo="2000")
-    print(em)
+    top_moves = se.get_top_stockfish_moves(board)
+    log_debug(f"Top Moves:{top_moves}")
     se.quit_engine()
