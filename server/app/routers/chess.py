@@ -1,7 +1,8 @@
+# flake8: noqa
 from typing import List
 from fastapi import APIRouter, Request, Depends, HTTPException
-from app.models.chess_models import MoveInput
-from app.services.chess_service import (
+from app.Domains.Game.models import MoveInput
+from app.Domains.Game.chess_game import (
     ChessGame,
     create_and_get_new_chess_game,
     ChessServiceError,
@@ -17,8 +18,7 @@ from app.services.redis.redis_services import (
     RedisServiceError,
     redis_delete_game_by_id,
 )
-from app.services.engine.engine_manager import EngineManager
-from app.services.engine.dependencies import get_engine_manager
+from app.Domains.Engine.engine_manager import StockfishEngine
 
 from app.utils.error_handling import log_error, log_success, ChessGameError, log_debug
 from app.utils.DIFY.ai_analysis_llm import run_ai_analysis
@@ -38,12 +38,12 @@ chess_router = APIRouter()
 async def start_new_game(
     request: Request,
     user_elo: int | str,
-    engine_manager: EngineManager = Depends(get_engine_manager),
 ):
     """Start a new chess game."""
 
     redis_client = request.app.state.redis_client
     mongo_client = request.app.state.mongo_client
+    stockfish_engine: StockfishEngine = request.app.state.stockfish_engine
     if not redis_client:
         log_error("Redis Connection Failed")
         raise HTTPException(status_code=500, detail="Redis Connection Failed")
@@ -52,12 +52,15 @@ async def start_new_game(
         log_error("Mongo Connection Failed")
         raise HTTPException(status_code=500, detail="Mongo Connection Failed")
 
+    if not stockfish_engine:
+        log_error(f"Stockfish Engine not Initialized")
+        raise HTTPException(status_code=500, detail="Stockfish Connection Failed")
     # Create a new redis state and get the unique game id
     try:
         game_id = redis_create_new_game_id(redis_client=redis_client)
         # now we create a new ChessGame instance
         game: ChessGame = create_and_get_new_chess_game(
-            game_id=game_id, elo_level=user_elo, engine_manager=engine_manager
+            game_id=game_id, elo_level=user_elo
         )
         # now we insert this in redis
         redis_set_game_by_id(
@@ -92,13 +95,13 @@ async def play_user_move(
     move_input: MoveInput,
     request: Request,
     game_id: str,
-    engine_manager: EngineManager = Depends(get_engine_manager),
 ):
     """Handles user move and gets Stockfish's response."""
 
     try:
         redis_client = request.app.state.redis_client
         mongo_client = request.app.state.mongo_client
+        stockfish_engine: StockfishEngine = request.app.state.stockfish_engine
         if not redis_client:
             log_error("Redis Connection Failed")
             raise HTTPException(status_code=500, detail="Redis Connection Failed")
@@ -107,19 +110,25 @@ async def play_user_move(
             log_error("Mongo Connection Failed")
             raise HTTPException(status_code=500, detail="Mongo Connection Failed")
 
+        if not stockfish_engine:
+            log_error(f"Stockfish Engine not Initialized")
+            raise HTTPException(status_code=500, detail="Stockfish Connection Failed")
+
         game_data = redis_get_game_data_by_id(
             game_id=game_id, redis_client=redis_client
         )
         # reconstruct game instance using the game_data
-        game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
+        game = ChessGame.from_dict(game_data)
         # make move
         game.make_user_move(move_input.move)
 
-        stockfish_move, stockfish_move_san, is_game_over = await game.get_engine_move()
+        stockfish_move, stockfish_move_san, is_game_over = await game.get_engine_move(
+            engine=stockfish_engine
+        )
 
         if not stockfish_move or not stockfish_move_san:
             # Game over after user move
-            game.quit_game(engine_manager=engine_manager)
+            game.quit_game()
             redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
 
             # Use dictionary instead of Game model
@@ -147,7 +156,7 @@ async def play_user_move(
 
         if is_game_over:
             # Game over after engine move
-            game.quit_game(engine_manager=engine_manager)
+            game.quit_game()
             redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
 
             # Use dictionary instead of Game model
@@ -212,13 +221,14 @@ async def play_user_move(
 async def end_game(
     request: Request,
     game_id: str,
-    engine_manager: EngineManager = Depends(get_engine_manager),
 ):
     """Ends the game and stops the engine."""
 
     try:
         redis_client = request.app.state.redis_client
         mongo_client = request.app.state.mongo_client
+        stockfish_engine: StockfishEngine = request.app.state.stockfish_engine
+
         if not redis_client:
             log_error("Redis Connection Failed")
             raise HTTPException(status_code=500, detail="Redis Connection Failed")
@@ -227,14 +237,18 @@ async def end_game(
             log_error("Mongo Connection Failed")
             raise HTTPException(status_code=500, detail="Mongo Connection Failed")
 
+        if not stockfish_engine:
+            log_error(f"Stockfish Engine not Initialized")
+            raise HTTPException(status_code=500, detail="Stockfish Connection Failed")
+
         game_data = redis_get_game_data_by_id(
             game_id=game_id, redis_client=redis_client
         )
 
         # reconstruct game instance using the game_data
-        game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
+        game = ChessGame.from_dict(game_data)
 
-        game.quit_game(engine_manager=engine_manager)
+        game.quit_game()
 
         # delete game from redis
         message = redis_delete_game_by_id(game_id=game_id, redis_client=redis_client)
@@ -261,7 +275,6 @@ async def end_game(
 async def undo_move(
     request: Request,
     game_id: str,
-    engine_manager: EngineManager = Depends(get_engine_manager),
 ):
     """Undo the last move."""
     try:
@@ -279,7 +292,7 @@ async def undo_move(
             game_id=game_id, redis_client=redis_client
         )
         # reconstruct game instance using the game_data
-        game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
+        game = ChessGame.from_dict(game_data)
 
         fen_after_undo = game.undo_move()
 
@@ -316,25 +329,29 @@ async def undo_move(
 async def get_ai_analysis(
     game_id: str,
     request: Request,
-    engine_manager: EngineManager = Depends(get_engine_manager),
 ):
     """Gets Analysis from DIFY Workflow"""
 
     try:
         redis_client = request.app.state.redis_client
+        stockfish_engine = request.app.state.stockfish_engine
         if not redis_client:
             log_error("Redis Connection Failed")
             raise HTTPException(status_code=500, detail="Redis Connection Failed")
+
+        if not stockfish_engine:
+            log_error(f"Stockfish Engine not Initialized")
+            raise HTTPException(status_code=500, detail="Stockfish Connection Failed")
 
         game_data = redis_get_game_data_by_id(
             game_id=game_id, redis_client=redis_client
         )
 
         # reconstruct game instance using the game_data
-        game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
+        game = ChessGame.from_dict(game_data)
 
         # First get top moves:
-        top_moves: List = await game.get_top_stockfish_moves()
+        top_moves: List = await game.get_top_stockfish_moves(engine=stockfish_engine)
         fen = game.get_fen()
         turn = game.board.turn
         analysis = run_ai_analysis(str(top_moves), fen, turn)
@@ -356,7 +373,6 @@ async def get_ai_analysis(
 async def get_top_moves(
     game_id: str,
     request: Request,
-    engine_manager: EngineManager = Depends(get_engine_manager),
 ):
     """Gets Maximum of 3 top moves at the position"""
     try:
@@ -370,9 +386,9 @@ async def get_top_moves(
         )
 
         # reconstruct game instance using the game_data
-        game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
+        game = ChessGame.from_dict(game_data)
 
-        top_moves: List = await game.get_top_stockfish_moves()
+        top_moves: List = await game.get_top_stockfish_moves(engine=StockfishEngine)
 
         return {game_id: game_id, "top_moves": top_moves, "fen": game.get_fen()}
     except Exception as e:
@@ -384,7 +400,6 @@ def voice_to_move_san(
     user_input: str,
     request: Request,
     game_id: str,
-    engine_manager: EngineManager = Depends(get_engine_manager),
 ):
     """Converts voice input to move in SAN format using LLM and current fen position."""
     try:
@@ -398,7 +413,7 @@ def voice_to_move_san(
         )
 
         # reconstruct game instance using the game_data
-        game = ChessGame.from_dict(game_data, engine_manager=engine_manager)
+        game = ChessGame.from_dict(game_data)
 
         # Get current FEN
         current_fen = game.get_fen()
